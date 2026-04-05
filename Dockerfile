@@ -21,3 +21,5 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 # docker compose up -d
 # docker compose stop
 # docker compose down -v --rmi all
+# docker network ls
+# docker network connect <mi-contenedor-de-spring-boot> <contenedor-de-postgress>
