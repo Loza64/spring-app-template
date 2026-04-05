@@ -17,3 +17,5 @@ COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 4000
 ENTRYPOINT ["java", "-jar", "app.jar"]
+
+# docker run -p 4000:4000 nombre-de-tu-imagen
