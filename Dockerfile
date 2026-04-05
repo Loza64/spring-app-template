@@ -18,6 +18,6 @@ COPY --from=build /app/target/*.jar app.jar
 EXPOSE 4000
 ENTRYPOINT ["java", "-jar", "app.jar"]
 
-# docker-compose up -d
-# docker-compose stop
-# docker-compose down -v --rmi all
+# docker compose up -d
+# docker compose stop
+# docker compose down -v --rmi all
