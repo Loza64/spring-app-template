@@ -1,0 +1,18 @@
+about_resource: respond.min.js
+download_url: https://github.com/scottjehl/Respond/archive/1.4.2.tar.gz
+
+version: 1.4.2
+name: Respond.js
+homepage_url: https://github.com/scottjehl/Respond/tree/1.4.2
+owner: Scott Jehl
+copyright: Copyright (c) 2012 Scott Jehl
+
+license_expression: mit
+licenses:
+  - key: mit
+    name: MIT License
+    file: respond.LICENSE
+    url: https://raw.githubusercontent.com/scottjehl/Respond/1.4.2/LICENSE-MIT
+    spdx_license_key: MIT
+
+package_url: pkg:github/scottjehl/Respond@1.4.2

@@ -2,6 +2,7 @@ package com.server.app.filters;
 
 import java.io.IOException;
 
+import com.server.app.config.SecurityRules;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -23,18 +24,31 @@ public class DynamicAuthorizationFilter extends OncePerRequestFilter {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain filterChain) throws ServletException, IOException {
+
+        String method = request.getMethod();
+        String path = request.getRequestURI();
+
+        if (SecurityRules.isPublic(path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (SecurityRules.isAuthOnly(path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication != null && authentication.isAuthenticated()) {
-            String method = request.getMethod();
-            String path = request.getRequestURI();
 
             if (!isAuthorized(authentication, method, path)) {
-                sendError(response, HttpServletResponse.SC_FORBIDDEN,
-                        "Acceso denegado: no tienes permisos para esta ruta: " + path);
+                sendError(
+                        response,
+                        HttpServletResponse.SC_FORBIDDEN,
+                        "Acceso denegado: no tienes permisos para esta ruta: " + path
+                );
                 return;
             }
         }
@@ -43,24 +57,25 @@ public class DynamicAuthorizationFilter extends OncePerRequestFilter {
     }
 
     private boolean isAuthorized(Authentication authentication, String method, String path) {
+
         return authentication.getAuthorities().stream().anyMatch(a -> {
+
             String authority = a.getAuthority();
 
             String[] parts = authority.split(":", 2);
-            if (parts.length != 2)
-                return false;
+            if (parts.length != 2) return false;
 
             String authMethod = parts[0];
             String authPath = parts[1];
 
-            return method.equalsIgnoreCase(authMethod) &&
-                    pathMatcher.match(authPath, path);
+            return method.equalsIgnoreCase(authMethod) && pathMatcher.match(authPath, path);
         });
     }
 
-    private void sendError(HttpServletResponse response, int status, String message) throws IOException {
-        if (response.isCommitted())
-            return;
+    private void sendError(HttpServletResponse response, int status, String message)
+            throws IOException {
+
+        if (response.isCommitted()) return;
 
         response.setStatus(status);
         response.setContentType("application/json;charset=UTF-8");

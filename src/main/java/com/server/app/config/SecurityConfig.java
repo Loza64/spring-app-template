@@ -28,15 +28,18 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login").permitAll()
-                        .requestMatchers("/api/auth/signup").permitAll()
-                        .requestMatchers("/api/auth/profile").permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers(SecurityRules.PUBLIC.toArray(String[]::new)).permitAll()
+                        .requestMatchers(SecurityRules.AUTH_ONLY.toArray(String[]::new)).authenticated()
+                        .anyRequest().authenticated()
+                )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(dynamicAuthorizationFilter, JwtAuthenticationFilter.class);
 

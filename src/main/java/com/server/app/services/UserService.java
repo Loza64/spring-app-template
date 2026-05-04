@@ -76,15 +76,6 @@ public class UserService {
         return new AuthResponse(token, user);
     }
 
-    public User profile(String token) {
-        int id = jwt.extractIdUser(token);
-        User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
-        if (user.isBlocked()) {
-            throw new UnauthorizedException("Your account has been blocked");
-        }
-        return user;
-    }
-
     @Transactional
     public User create(UserCreateDto dto) {
         uniqueUsername(dto.getUsername(), null);

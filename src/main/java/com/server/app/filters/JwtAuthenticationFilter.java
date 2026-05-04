@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.server.app.config.SecurityRules;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -38,16 +39,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userService = userService;
     }
 
-    // 🔹 Omitir el filtro para login y signup
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+    protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.equals("/api/auth/login") || path.equals("/api/auth/signup") || path.equals("/api/auth/profile");
+        return SecurityRules.isPublic(path);
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain filterChain) throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
 
@@ -72,8 +71,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             Integer userId = jwtUtil.extractIdUser(token);
             if (userId == null) {
-                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
-                        "Token data invalid");
+                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token data invalid");
                 return;
             }
 
@@ -88,14 +86,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
+            // 🔐 AUTHORITIES (RBAC dinámico)
             Set<GrantedAuthority> authorities = user.getRole().getPermissions().stream()
-                    .map(permission -> new SimpleGrantedAuthority(permission.getMethod() + ":" + permission.getPath()))
+                    .map(p -> new SimpleGrantedAuthority(p.getMethod() + ":" + p.getPath()))
                     .collect(Collectors.toSet());
 
             authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().getName()));
 
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    user, null, authorities);
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user, null, authorities);
+
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -112,10 +111,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
+
+        if (response.isCommitted()) return;
+
         response.setStatus(status);
         response.setContentType("application/json");
+
         ExceptionResponse error = new ExceptionResponse(status, message);
         String json = new ObjectMapper().writeValueAsString(error);
+
         response.getWriter().write(json);
     }
 }

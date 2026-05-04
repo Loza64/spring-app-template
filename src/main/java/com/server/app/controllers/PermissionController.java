@@ -2,6 +2,7 @@ package com.server.app.controllers;
 
 import com.server.app.dto.permission.PermissionDto;
 import com.server.app.dto.response.Pagination;
+import com.server.app.dto.response.PaginationMeta;
 import com.server.app.entities.Permission;
 import com.server.app.services.PermissionService;
 
@@ -25,15 +26,20 @@ public class PermissionController {
 
     @GetMapping
     public ResponseEntity<Pagination<Permission>> findAll(
-            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        var permissionsPage = permissionService.findAll(page, size);
-        var response = new Pagination<Permission>(
-                permissionsPage.getContent(),
-                permissionsPage.getNumber(),
-                permissionsPage.getSize(),
-                permissionsPage.getTotalPages(),
-                permissionsPage.getTotalElements());
-        return ResponseEntity.ok(response);
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        var p = permissionService.findAll(page, size);
+
+        return ResponseEntity.ok(new Pagination<>(
+                p.getContent(),
+                new PaginationMeta(
+                        p.getNumber(),
+                        p.getSize(),
+                        p.getTotalPages(),
+                        p.getTotalElements()
+                )
+        ));
     }
 
     @GetMapping("/{id}")

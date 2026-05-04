@@ -10,7 +10,9 @@ import com.server.app.services.UserService;
 
 import jakarta.validation.Valid;
 
+import org.apache.catalina.realm.AuthenticatedUserRealm;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -36,12 +38,7 @@ public class AuthController {
     }
 
     @GetMapping("/profile")
-    public ResponseEntity<User> getProfile(@RequestHeader("Authorization") String authHeader) {
-        String token = authHeader.startsWith("Bearer ")
-                ? authHeader.substring(7)
-                : authHeader;
-
-        User user = userService.profile(token);
+    public ResponseEntity<User> getProfile(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(user);
     }
 

@@ -1,5 +1,6 @@
 package com.server.app.controllers;
 
+import com.server.app.dto.response.PaginationMeta;
 import com.server.app.dto.user.UserCreateDto;
 import com.server.app.dto.user.UserUpdateDto;
 import com.server.app.dto.response.Pagination;
@@ -37,15 +38,16 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        Page<User> usersPage = userService.findAll(page, size);
-        Pagination<User> response = new Pagination<User>(
-                usersPage.getContent(),
-                usersPage.getNumber(),
-                usersPage.getSize(),
-                usersPage.getTotalPages(),
-                usersPage.getTotalElements());
-
-        return ResponseEntity.ok(response);
+        Page<User> p = userService.findAll(page, size);
+        return ResponseEntity.ok(new Pagination<>(
+                p.getContent(),
+                new PaginationMeta(
+                        p.getNumber(),
+                        p.getSize(),
+                        p.getTotalPages(),
+                        p.getTotalElements()
+                )
+        ));
     }
 
     @GetMapping("/{id}")

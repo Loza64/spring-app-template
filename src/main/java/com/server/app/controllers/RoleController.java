@@ -1,6 +1,7 @@
 package com.server.app.controllers;
 
 import com.server.app.dto.response.Pagination;
+import com.server.app.dto.response.PaginationMeta;
 import com.server.app.dto.role.RoleDto;
 import com.server.app.entities.Role;
 import com.server.app.services.RoleService;
@@ -36,16 +37,17 @@ public class RoleController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        Page<Role> rolesPage = roleService.findAll(page, size);
+        Page<Role> p = roleService.findAll(page, size);
 
-        Pagination<Role> response = new Pagination<Role>(
-                rolesPage.getContent(),
-                rolesPage.getNumber(),
-                rolesPage.getSize(),
-                rolesPage.getTotalPages(),
-                rolesPage.getTotalElements());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new Pagination<>(
+                p.getContent(),
+                new PaginationMeta(
+                        p.getNumber(),
+                        p.getSize(),
+                        p.getTotalPages(),
+                        p.getTotalElements()
+                )
+        ));
     }
 
     @GetMapping("/{id}")
