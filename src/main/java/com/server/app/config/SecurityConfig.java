@@ -19,27 +19,18 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final DynamicAuthorizationFilter dynamicAuthorizationFilter;
 
-    public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter,
-            DynamicAuthorizationFilter dynamicAuthorizationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, DynamicAuthorizationFilter dynamicAuthorizationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.dynamicAuthorizationFilter = dynamicAuthorizationFilter;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(SecurityRules.PUBLIC.toArray(String[]::new)).permitAll()
-                        .requestMatchers(SecurityRules.AUTH_ONLY.toArray(String[]::new)).authenticated()
-                        .anyRequest().authenticated()
-                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())  // 🚨 IMPORTANTE: Toda la autorización se maneja en filtros personalizados
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(dynamicAuthorizationFilter, JwtAuthenticationFilter.class);
 

@@ -24,31 +24,38 @@ public class DynamicAuthorizationFilter extends OncePerRequestFilter {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
         String method = request.getMethod();
         String path = request.getRequestURI();
 
-        if (SecurityRules.isPublic(path)) {
+        // 🚫 Ignorados
+        if (SecurityRules.isIgnored(path)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        if (SecurityRules.isAuthOnly(path)) {
+        // 🔓 Públicos
+        if (SecurityRules.isPublic(method, path)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        // 🔐 Solo autenticados
+        if (SecurityRules.isAuthOnly(method, path)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication != null && authentication.isAuthenticated()) {
 
             if (!isAuthorized(authentication, method, path)) {
-                sendError(
-                        response,
-                        HttpServletResponse.SC_FORBIDDEN,
-                        "Acceso denegado: no tienes permisos para esta ruta: " + path
-                );
+
+                sendError(response, HttpServletResponse.SC_FORBIDDEN,"Acceso denegado: no tienes permisos para esta ruta: " + path);
+
                 return;
             }
         }
@@ -63,6 +70,7 @@ public class DynamicAuthorizationFilter extends OncePerRequestFilter {
             String authority = a.getAuthority();
 
             String[] parts = authority.split(":", 2);
+
             if (parts.length != 2) return false;
 
             String authMethod = parts[0];
@@ -72,15 +80,17 @@ public class DynamicAuthorizationFilter extends OncePerRequestFilter {
         });
     }
 
-    private void sendError(HttpServletResponse response, int status, String message)
-            throws IOException {
+    private void sendError(HttpServletResponse response, int status,String message) throws IOException {
 
-        if (response.isCommitted()) return;
+        if (response.isCommitted()) {
+            return;
+        }
 
         response.setStatus(status);
         response.setContentType("application/json;charset=UTF-8");
 
         ExceptionResponse error = new ExceptionResponse(status, message);
+
         String payload = objectMapper.writeValueAsString(error);
 
         response.getWriter().write(payload);

@@ -34,19 +34,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JsonWebToken jwtUtil;
     private final UserService userService;
 
-    public JwtAuthenticationFilter(@Lazy JsonWebToken jwtUtil, UserService userService) {
+    public JwtAuthenticationFilter(@Lazy JsonWebToken jwtUtil,
+                                   UserService userService) {
+
         this.jwtUtil = jwtUtil;
         this.userService = userService;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+
+        String method = request.getMethod();
         String path = request.getRequestURI();
-        return SecurityRules.isPublic(path);
+
+        return SecurityRules.isPublic(method, path)
+                || SecurityRules.isIgnored(path);
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
 
@@ -58,26 +64,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String token = authHeader.substring(7);
 
         try {
+
             if (jwtUtil.isTokenExpired(token)) {
                 sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token expired");
                 return;
             }
 
+            // 📦 Claims
             Claims claims = jwtUtil.extracClaims(token);
+
             if (claims == null) {
                 sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token data");
                 return;
             }
 
             Integer userId = jwtUtil.extractIdUser(token);
+
             if (userId == null) {
-                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token data invalid");
+                sendErrorResponse(response,HttpServletResponse.SC_UNAUTHORIZED,"Token data invalid");
                 return;
             }
 
             User user = userService.findById(userId);
+
             if (user == null) {
-                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Your account has been deleted");
+                sendErrorResponse(response,HttpServletResponse.SC_UNAUTHORIZED,"Your account has been deleted");
                 return;
             }
 
@@ -86,14 +97,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // 🔐 AUTHORITIES (RBAC dinámico)
-            Set<GrantedAuthority> authorities = user.getRole().getPermissions().stream()
-                    .map(p -> new SimpleGrantedAuthority(p.getMethod() + ":" + p.getPath()))
-                    .collect(Collectors.toSet());
+            Set<GrantedAuthority> authorities =
+                    user.getRole()
+                            .getPermissions()
+                            .stream()
+                            .map(permission ->
+                                    new SimpleGrantedAuthority(permission.getMethod() + ":" + permission.getPath())
+                            )
+                            .collect(Collectors.toSet());
 
             authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().getName()));
 
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user, null, authorities);
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user,null, authorities);
 
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
@@ -102,9 +117,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
 
         } catch (ExpiredJwtException e) {
-            sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token expirado");
+
+            sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token expirado" );
+
         } catch (JwtException e) {
+
             sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token inválido");
+
         } catch (Exception e) {
             sendErrorResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error interno del servidor");
         }
@@ -112,12 +131,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {
 
-        if (response.isCommitted()) return;
+        if (response.isCommitted())  return;
 
         response.setStatus(status);
         response.setContentType("application/json");
 
         ExceptionResponse error = new ExceptionResponse(status, message);
+
         String json = new ObjectMapper().writeValueAsString(error);
 
         response.getWriter().write(json);

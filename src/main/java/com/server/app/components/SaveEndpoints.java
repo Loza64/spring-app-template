@@ -24,43 +24,58 @@ public class SaveEndpoints implements ApplicationListener<ApplicationReadyEvent>
 
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
+
         handlerMapping.getHandlerMethods()
-                .forEach((info, method) -> getPaths(info)
-                        .forEach(path -> processEndpoint(path, info)));
+                .forEach((info, method) -> {
+
+                    Set<String> paths = getPaths(info);
+                    Set<org.springframework.web.bind.annotation.RequestMethod> methods =
+                            info.getMethodsCondition().getMethods();
+
+                    if (methods.isEmpty()) {
+                        methods = Set.of(org.springframework.web.bind.annotation.RequestMethod.GET);
+                    }
+
+                    for (String path : paths) {
+                        for (var httpMethod : methods) {
+                            processEndpoint(path, httpMethod.name());
+                        }
+                    }
+                });
     }
 
     private Set<String> getPaths(RequestMappingInfo info) {
+
         if (info.getPathPatternsCondition() != null) {
             return info.getPathPatternsCondition()
                     .getPatterns()
                     .stream()
                     .map(Object::toString)
                     .collect(Collectors.toSet());
-        } else if (info.getPatternsCondition() != null) {
-            return info.getPatternsCondition().getPatterns();
         }
+
+        else if (info.getPatternsCondition() != null) {
+            return info.getPatternsCondition()
+                    .getPatterns();
+        }
+
         return Set.of();
     }
 
-    private void processEndpoint(String path, RequestMappingInfo info) {
+    private void processEndpoint(String path, String method) {
 
-        // 🔥 1. Ignorados globalmente
-        if (SecurityRules.isIgnored(path)) return;
-
-        // 🔓 2. Públicos → no se guardan como permisos
-        if (SecurityRules.isPublic(path)) return;
-
-        // 🔐 3. Auth-only → tampoco se guardan como permisos
-        if (SecurityRules.isAuthOnly(path)) return;
-
-        var methods = info.getMethodsCondition().getMethods();
-
-        if (methods.isEmpty()) {
-            permissionService.createIfNotExists(path, "GET");
-        } else {
-            methods.forEach(method ->
-                    permissionService.createIfNotExists(path, method.name())
-            );
+        if (SecurityRules.isIgnored(path)) {
+            return;
         }
+
+        if (SecurityRules.isPublic(method, path)) {
+            return;
+        }
+
+        if (SecurityRules.isAuthOnly(method, path)) {
+            return;
+        }
+
+        permissionService.createIfNotExists(path, method);
     }
 }

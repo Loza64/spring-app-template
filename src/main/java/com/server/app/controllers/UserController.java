@@ -34,10 +34,7 @@ public class UserController {
     }
 
     @GetMapping
-    public ResponseEntity<Pagination<User>> findAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
+    public ResponseEntity<Pagination<User>> findAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
         Page<User> p = userService.findAll(page, size);
         return ResponseEntity.ok(new Pagination<>(
                 p.getContent(),
@@ -54,4 +51,5 @@ public class UserController {
     public ResponseEntity<User> findById(@PathVariable int id) {
         return ResponseEntity.ok(userService.findById(id));
     }
+
 }
