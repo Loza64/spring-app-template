@@ -4,6 +4,7 @@ import com.server.app.dto.permission.PermissionDto;
 import com.server.app.entities.Permission;
 import com.server.app.exceptions.NotFoundException;
 import com.server.app.repositories.PermissionRepository;
+import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -12,13 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 
 @Service
+@AllArgsConstructor
 public class PermissionService {
 
     private final PermissionRepository permissionRepository;
-
-    public PermissionService(PermissionRepository permissionRepository) {
-        this.permissionRepository = permissionRepository;
-    }
 
     @Transactional
     public Page<Permission> findAll(int page, int size) {

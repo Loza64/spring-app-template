@@ -34,8 +34,12 @@ public class UserController {
     }
 
     @GetMapping
-    public ResponseEntity<Pagination<User>> findAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
-        Page<User> p = userService.findAll(page, size);
+    public ResponseEntity<Pagination<User>> findAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "") String search
+    ) {
+        Page<User> p = userService.findAll(page, size, search);
         return ResponseEntity.ok(new Pagination<>(
                 p.getContent(),
                 new PaginationMeta(

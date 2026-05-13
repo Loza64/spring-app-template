@@ -7,6 +7,7 @@ import com.server.app.entities.Role;
 import com.server.app.exceptions.NotFoundException;
 import com.server.app.repositories.PermissionRepository;
 import com.server.app.repositories.RoleRepository;
+import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -19,15 +20,11 @@ import java.util.Optional;
 import java.util.Set;
 
 @Service
+@AllArgsConstructor
 public class RoleService {
 
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
-
-    public RoleService(RoleRepository roleRepository, PermissionRepository permissionRepository) {
-        this.roleRepository = roleRepository;
-        this.permissionRepository = permissionRepository;
-    }
 
     @Transactional
     public Page<Role> findAll(int page, int size) {

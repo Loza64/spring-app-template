@@ -1,5 +1,6 @@
 package com.server.app.services;
 
+import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +24,7 @@ import com.server.app.repositories.RoleRepository;
 import com.server.app.repositories.UserRepository;
 
 @Service
+@AllArgsConstructor
 public class UserService {
 
     private final PasswordEncoder passwordEncoder;
@@ -30,16 +32,8 @@ public class UserService {
     private final JsonWebToken jwt;
     private final RoleRepository roleRepository;
 
-    public UserService(PasswordEncoder passwordEncoder, UserRepository userRepository,
-            JsonWebToken jwt, RoleRepository roleRepository) {
-        this.passwordEncoder = passwordEncoder;
-        this.userRepository = userRepository;
-        this.jwt = jwt;
-        this.roleRepository = roleRepository;
-    }
-
     public AuthResponse login(String username, String password) {
-        User user = userRepository.findByUsername(username)
+        User user = userRepository.findUserByUsername(username)
                 .orElseThrow(() -> new UnauthorizedException("Usuario no encontrado"));
 
         if (user.isBlocked()) {
@@ -96,8 +90,8 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public Page<User> findAll(int page, int size) {
-        return userRepository.findAll(PageRequest.of(page, size));
+    public Page<User> findAll(int page, int size, String search) {
+        return userRepository.findAll(PageRequest.of(page, size), search);
     }
 
     public User findById(int id) {
@@ -189,7 +183,7 @@ public class UserService {
     }
 
     private void uniqueUsername(String username, Integer id) {
-        userRepository.findByUsername(username).ifPresent(existing -> {
+        userRepository.findUserByUsername(username).ifPresent(existing -> {
             if (id == null || existing.getId() != id) {
                 throw new ConfictException("El nombre de usuario ya está en uso");
             }
@@ -197,7 +191,7 @@ public class UserService {
     }
 
     private void uniqueEmail(String email, Integer id) {
-        userRepository.findByEmail(email).ifPresent(existing -> {
+        userRepository.findUserByEmail(email).ifPresent(existing -> {
             if (id == null || existing.getId() != id) {
                 throw new ConfictException("El correo electrónico ya está en uso");
             }
