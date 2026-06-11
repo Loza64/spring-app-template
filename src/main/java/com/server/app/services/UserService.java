@@ -173,6 +173,10 @@ public class UserService {
             user.setBlocked(dto.getBlocked());
         }
 
+        if(dto.getPassword() != null && !dto.getPassword().isBlank()) {
+            user.setPassword(dto.getPassword());
+        }
+
         if (dto.getRole() != null) {
             Role role = roleRepository.findById(dto.getRole())
                     .orElseThrow(() -> new NotFoundException("Rol no encontrado"));

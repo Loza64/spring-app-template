@@ -8,7 +8,7 @@ import lombok.Data;
 public class PermissionDto {
 
     @NotBlank(message = "El titulo es obligatorio")
-    @Size(max = 255, message = "El path no puede superar 255 caracteres")
+    @Size(max = 255, message = "El titulo no puede superar 255 caracteres")
     private String title;
 
 }

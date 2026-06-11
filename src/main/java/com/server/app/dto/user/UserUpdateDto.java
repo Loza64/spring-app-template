@@ -1,9 +1,6 @@
 package com.server.app.dto.user;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 
 @Data
@@ -25,6 +22,10 @@ public class UserUpdateDto {
 
     @Positive(message = "El roleId debe ser un número positivo")
     private Long role;
+
+    @Size(min = 8, max = 100, message = "La contraseña debe tener entre 8 y 100 caracteres")
+    @Pattern(regexp = "^(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[@$!%*?&._-]).+$", message = "La contraseña debe incluir al menos una mayúscula, una minúscula, un número y un carácter especial")
+    private String password;
 
     private Boolean blocked;
 }
