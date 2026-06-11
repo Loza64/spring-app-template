@@ -186,6 +186,10 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    @Transactional public void deleteUser(int userId) {
+        userRepository.deleteById(userId);
+    }
+
     private void uniqueUsername(String username, Integer id) {
         userRepository.findUserByUsername(username).ifPresent(existing -> {
             if (id == null || existing.getId() != id) {

@@ -51,6 +51,11 @@ public class UserController {
         ));
     }
 
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable int id){
+        userService.deleteUser(id);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<User> findById(@PathVariable int id) {
         return ResponseEntity.ok(userService.findById(id));
