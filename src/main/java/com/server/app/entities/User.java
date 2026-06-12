@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @Table(name = "users")

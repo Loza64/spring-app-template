@@ -56,10 +56,4 @@ public class RoleController {
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Long id) {
-        roleService.delete(id);
-        return ResponseEntity.ok("Rol eliminado");
-    }
 }

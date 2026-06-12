@@ -65,12 +65,10 @@ public class RoleService {
             Set<Permission> permissions = new HashSet<>(permissionRepository.findAllById(ids));
             role.setPermissions(permissions);
         }
+
+        if(dto.getActive() != null){
+            role.setActive(dto.getActive());
+        }
         return roleRepository.save(role);
     }
-
-    @Transactional
-    public void delete(Long id) {
-        roleRepository.deleteById(id);
-    }
-
 }

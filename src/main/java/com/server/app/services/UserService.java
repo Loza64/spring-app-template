@@ -44,6 +44,10 @@ public class UserService {
             throw new UnauthorizedException("Contraseña incorrecta");
         }
 
+        if (!user.getRole().getActive()) {
+            throw new UnauthorizedException("Your account role has been disabled");
+        }
+
         String token = jwt.createToken(user);
         return new AuthResponse(token, user);
     }
@@ -66,6 +70,10 @@ public class UserService {
 
         userRepository.save(user);
         String token = jwt.createToken(user);
+
+        if (!user.getRole().getActive()) {
+            throw new UnauthorizedException("Your account role has been disabled");
+        }
 
         return new AuthResponse(token, user);
     }

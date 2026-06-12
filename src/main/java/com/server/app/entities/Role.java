@@ -19,11 +19,13 @@ public class Role {
     @Column(unique = true, nullable = false, length = 50)
     private String name;
 
+    @Column(nullable = false)
+    private Boolean active;
+
     @ManyToMany(fetch = FetchType.EAGER, cascade = { CascadeType.PERSIST, CascadeType.MERGE })
     @JoinTable(name = "role_permissions", // tabla intermedia
             joinColumns = @JoinColumn(name = "role_id"), inverseJoinColumns = @JoinColumn(name = "permission_id"))
     @EqualsAndHashCode.Exclude
     @ToString.Exclude
     private Set<Permission> permissions;
-
 }

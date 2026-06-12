@@ -16,4 +16,6 @@ public class RoleDto {
     private String name;
 
     private Set<AssingPermissionDto> permissions;
+
+    private Boolean active;
 }
