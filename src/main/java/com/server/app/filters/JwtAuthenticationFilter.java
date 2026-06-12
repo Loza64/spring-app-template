@@ -102,8 +102,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            System.out.println(user);
-
             Set<GrantedAuthority> authorities =
                     user.getRole()
                             .getPermissions()
