@@ -40,6 +40,7 @@ public class RoleService {
     public Role save(RoleDto dto) {
         Role role = new Role();
         role.setName(dto.getName());
+        role.setActive(dto.getActive());
         if (dto.getPermissions() != null && !dto.getPermissions().isEmpty()) {
             List<Long> ids = dto.getPermissions()
                     .stream()

@@ -1,21 +1,31 @@
 package com.server.app.dto.role;
 
+import com.server.app.dto.permission.AssingPermissionDto;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
+import java.util.HashSet;
 import java.util.Set;
 
-import com.server.app.dto.permission.AssingPermissionDto;
-
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class RoleDto {
 
     @NotBlank(message = "El nombre del rol es obligatorio")
-    @Size(max = 50, message = "El nombre del rol no puede superar 50 caracteres")
+    @Size(max = 50, message = "El nombre del rol no puede superar los 50 caracteres")
     private String name;
 
-    private Set<AssingPermissionDto> permissions;
+    @Valid
+    @Builder.Default
+    private Set<AssingPermissionDto> permissions = new HashSet<>();
 
-    private Boolean active;
+    @Builder.Default
+    private Boolean active = true;
 }
