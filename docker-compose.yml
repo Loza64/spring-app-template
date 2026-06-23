@@ -1,11 +1,17 @@
-version: "3.9"
-
 services:
-  app:
-    build: .
-    container_name: spring-app
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spring-app-template
+    restart: unless-stopped
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
     env_file:
       - .env
-    ports:
-      - "4000:4000"
-    restart: always
+    networks:
+      - postgres_network
+
+networks:
+  postgres_network:
+    external: true
