@@ -1,8 +1,7 @@
 package com.server.app.controller;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,59 +14,56 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.server.app.domain.dto.response.Pagination;
-import com.server.app.domain.dto.response.PaginationMapper;
-import com.server.app.domain.dto.role.RoleDto;
-import com.server.app.domain.model.Role;
-import com.server.app.service.RoleService;
+import com.server.app.common.pagination.PaginationResponse;
+import com.server.app.domain.dto.role.RoleCreateDto;
+import com.server.app.domain.dto.role.RoleResponseDto;
+import com.server.app.domain.dto.role.RoleUpdateDto;
+import com.server.app.service.RoleServiceImpl;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/roles")
+@RequiredArgsConstructor
 public class RoleController {
 
-  private final RoleService roleService;
-
-  public RoleController(RoleService roleService) {
-    this.roleService = roleService;
-  }
-
-  @PostMapping
-  public ResponseEntity<Role> save(@Valid @RequestBody RoleDto role) {
-    return ResponseEntity.ok(roleService.create(role));
-  }
-
-  @PutMapping("/{id}")
-  public ResponseEntity<Role> update(@PathVariable Long id, @Valid @RequestBody RoleDto dto) {
-    return ResponseEntity.ok(roleService.update(id, dto));
-  }
+  private final RoleServiceImpl roleService;
 
   @GetMapping
-  public ResponseEntity<Pagination<Role>> findAll(
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "10") int size) {
-
-    Page<Role> result = roleService.findBy(Specification.where(null), PageRequest.of(page, size));
-    return ResponseEntity.ok(PaginationMapper.from(result));
+  public ResponseEntity<PaginationResponse<RoleResponseDto>> findAll(
+      @RequestParam(required = false) String query,
+      @RequestParam(required = false, defaultValue = "false") Boolean showDeleted,
+      Pageable pageable) {
+    return ResponseEntity.ok(roleService.findAll(query, showDeleted, pageable));
   }
 
   @GetMapping("/{id}")
-  public ResponseEntity<Role> findById(@PathVariable Long id) {
+  public ResponseEntity<RoleResponseDto> findById(@PathVariable Long id) {
     return ResponseEntity.ok(roleService.findById(id));
   }
 
-  /**
-   * Soft delete: el rol deja de aparecer en las consultas pero puede restaurarse.
-   */
+  @PostMapping
+  public ResponseEntity<RoleResponseDto> create(@Valid @RequestBody RoleCreateDto dto) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(roleService.create(dto));
+  }
+
+  @PutMapping("/{id}")
+  public ResponseEntity<RoleResponseDto> update(
+      @PathVariable Long id,
+      @Valid @RequestBody RoleUpdateDto dto) {
+    return ResponseEntity.ok(roleService.update(id, dto));
+  }
+
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable Long id) {
-    roleService.softDelete(id);
+    roleService.delete(id);
     return ResponseEntity.noContent().build();
   }
 
   @PatchMapping("/{id}/restore")
-  public ResponseEntity<Role> restore(@PathVariable Long id) {
-    return ResponseEntity.ok(roleService.softRestore(id));
+  public ResponseEntity<Void> restore(@PathVariable Long id) {
+    roleService.restore(id);
+    return ResponseEntity.noContent().build();
   }
 }

@@ -6,16 +6,27 @@ import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
-import com.server.app.domain.dto.role.RoleDto;
+import com.server.app.domain.dto.role.RoleCreateDto;
+import com.server.app.domain.dto.role.RoleResponseDto;
+import com.server.app.domain.dto.role.RoleUpdateDto;
 import com.server.app.domain.model.Role;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = { PermissionMapper.class })
 public interface RoleMapper {
-
+  @Mapping(target = "id", ignore = true)
   @Mapping(target = "permissions", ignore = true)
-  Role toEntity(RoleDto dto);
+  @Mapping(target = "createdAt", ignore = true)
+  @Mapping(target = "updatedAt", ignore = true)
+  @Mapping(target = "deletedAt", ignore = true)
+  Role toEntity(RoleCreateDto dto);
 
-  @Mapping(target = "permissions", ignore = true)
   @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-  void updateEntity(RoleDto dto, @MappingTarget Role entity);
+  @Mapping(target = "id", ignore = true)
+  @Mapping(target = "permissions", ignore = true)
+  @Mapping(target = "createdAt", ignore = true)
+  @Mapping(target = "updatedAt", ignore = true)
+  @Mapping(target = "deletedAt", ignore = true)
+  void updateEntity(RoleUpdateDto dto, @MappingTarget Role entity);
+
+  RoleResponseDto toResponseDto(Role r);
 }

@@ -9,31 +9,32 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.server.app.security.filter.JwtAuthenticationFilter;
-import com.server.app.security.filter.DynamicAuthorizationFilter;
+import com.server.app.filter.DynamicAuthorizationFilter;
+import com.server.app.filter.JwtAuthenticationFilter;
 
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final DynamicAuthorizationFilter dynamicAuthorizationFilter;
+  private final JwtAuthenticationFilter jwtAuthenticationFilter;
+  private final DynamicAuthorizationFilter dynamicAuthorizationFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, DynamicAuthorizationFilter dynamicAuthorizationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.dynamicAuthorizationFilter = dynamicAuthorizationFilter;
-    }
+  public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+      DynamicAuthorizationFilter dynamicAuthorizationFilter) {
+    this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    this.dynamicAuthorizationFilter = dynamicAuthorizationFilter;
+  }
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())  // 🚨 IMPORTANTE: Toda la autorización se maneja en filtros personalizados
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(dynamicAuthorizationFilter, JwtAuthenticationFilter.class);
+  @Bean
+  SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        .cors(Customizer.withDefaults())
+        .csrf(csrf -> csrf.disable())
+        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+        .addFilterAfter(dynamicAuthorizationFilter, JwtAuthenticationFilter.class);
 
-        return http.build();
-    }
+    return http.build();
+  }
 }

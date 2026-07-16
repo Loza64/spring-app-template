@@ -1,6 +1,7 @@
 package com.server.app.controller;
 
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,66 +14,57 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.server.app.domain.dto.response.Pagination;
-import com.server.app.domain.dto.response.PaginationMapper;
-import com.server.app.domain.dto.response.UserResponseDto;
+import com.server.app.common.pagination.PaginationResponse;
 import com.server.app.domain.dto.user.UserCreateDto;
+import com.server.app.domain.dto.user.UserResponseDto;
 import com.server.app.domain.dto.user.UserUpdateDto;
-import com.server.app.domain.mapper.UserMapper;
-import com.server.app.domain.model.User;
-import com.server.app.service.UserService;
+import com.server.app.service.UserServiceImpl;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/users")
+@RequiredArgsConstructor
 public class UserController {
 
-    private final UserService userService;
-    private final UserMapper userMapper;
+  private final UserServiceImpl userService;
 
-    public UserController(UserService userService, UserMapper userMapper) {
-        this.userService = userService;
-        this.userMapper = userMapper;
-    }
+  @GetMapping
+  public ResponseEntity<PaginationResponse<UserResponseDto>> findAll(
+      @RequestParam(required = false) String query,
+      @RequestParam(required = false) Long roleId,
+      @RequestParam(required = false, defaultValue = "false") Boolean deleted,
+      Pageable pageable) {
+    return ResponseEntity.ok(userService.findAll(query, roleId, deleted, pageable));
+  }
 
-    @PostMapping
-    public ResponseEntity<UserResponseDto> createUser(@Valid @RequestBody UserCreateDto dto) {
-        User user = userService.create(dto);
-        return ResponseEntity.ok(userMapper.toResponseDto(user));
-    }
+  @GetMapping("/{id}")
+  public ResponseEntity<UserResponseDto> findById(@PathVariable Long id) {
+    return ResponseEntity.ok(userService.findById(id));
+  }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<UserResponseDto> updateUser(@PathVariable Integer id, @Valid @RequestBody UserUpdateDto dto) {
-        User user = userService.update(id, dto);
-        return ResponseEntity.ok(userMapper.toResponseDto(user));
-    }
+  @PostMapping
+  public ResponseEntity<UserResponseDto> create(@Valid @RequestBody UserCreateDto dto) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(userService.create(dto));
+  }
 
-    @GetMapping
-    public ResponseEntity<Pagination<UserResponseDto>> findAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "") String search) {
+  @PutMapping("/{id}")
+  public ResponseEntity<UserResponseDto> update(
+      @PathVariable Long id,
+      @Valid @RequestBody UserUpdateDto dto) {
+    return ResponseEntity.ok(userService.update(id, dto));
+  }
 
-        Page<User> result = userService.search(page, size, search);
-        return ResponseEntity.ok(PaginationMapper.from(result, userMapper::toResponseDto));
-    }
+  @DeleteMapping("/{id}")
+  public ResponseEntity<Void> delete(@PathVariable Long id) {
+    userService.delete(id);
+    return ResponseEntity.noContent().build();
+  }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<UserResponseDto> findById(@PathVariable Integer id) {
-        return ResponseEntity.ok(userMapper.toResponseDto(userService.findById(id)));
-    }
-
-    /** Soft delete: el usuario deja de aparecer en las consultas pero puede restaurarse. */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Integer id) {
-        userService.softDelete(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PatchMapping("/{id}/restore")
-    public ResponseEntity<UserResponseDto> restore(@PathVariable Integer id) {
-        User user = userService.softRestore(id);
-        return ResponseEntity.ok(userMapper.toResponseDto(user));
-    }
+  @PatchMapping("/{id}/restore")
+  public ResponseEntity<Void> restore(@PathVariable Long id) {
+    userService.restore(id);
+    return ResponseEntity.noContent().build();
+  }
 }

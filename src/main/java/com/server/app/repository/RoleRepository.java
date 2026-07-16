@@ -2,14 +2,13 @@ package com.server.app.repository;
 
 import java.util.Optional;
 
-import org.springframework.lang.NonNull;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import com.server.app.domain.model.Role;
-import com.server.app.repository.base.SoftDeletableRepository;
 
-public interface RoleRepository extends SoftDeletableRepository<Role, Long> {
+public interface RoleRepository extends JpaRepository<Role, Long>, JpaSpecificationExecutor<Role> {
+  boolean existsByName(String name);
 
-  @Override
-  @NonNull
-  Optional<Role> findById(Long id);
+  Optional<Role> findByName(String name);
 }
