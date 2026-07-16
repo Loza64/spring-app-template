@@ -9,8 +9,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.server.app.filters.JwtAuthenticationFilter;
-import com.server.app.filters.DynamicAuthorizationFilter;
+import com.server.app.security.filter.JwtAuthenticationFilter;
+import com.server.app.security.filter.DynamicAuthorizationFilter;
 
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)

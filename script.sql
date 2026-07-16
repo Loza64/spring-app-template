@@ -1,24 +1,22 @@
-
-INSERT INTO roles (name) VALUES
-('ADMIN'),
-('USER')
+INSERT INTO roles (name,active) VALUES
+('SUPER_ADMIN', true),
+('ADMIN', true)
 ON CONFLICT (name) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
-WHERE r.name = 'ADMIN'
+WHERE r.name = 'SUPER_ADMIN'
 ON CONFLICT DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
 CROSS JOIN permissions p
-WHERE r.name = 'USER' AND p.method = 'GET'
+WHERE r.name = 'ADMIN' AND p.method = 'GET'
 ON CONFLICT DO NOTHING;
 
-insert into role_permissions(permission_id, role_id) values (13, 2); --Permiso para rol user de actualizar contraseña
-
+select * from roles r ;
 select * from role_permissions;
 select * from permissions;
