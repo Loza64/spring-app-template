@@ -15,6 +15,8 @@ public class UserSpecifications {
       List<Predicate> predicates = new ArrayList<>();
       if (showDeleted != null && showDeleted) {
         predicates.add(cb.isNotNull(root.get("deletedAt")));
+      } else {
+        predicates.add(cb.isNull(root.get("deletedAt")));
       }
 
       if (query != null && !query.isEmpty()) {
