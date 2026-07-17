@@ -32,4 +32,10 @@ public interface UserMapper {
   @Mapping(target = "updatedAt", source = "updatedAt")
   @Mapping(target = "deletedAt", source = "deletedAt")
   UserResponseDto toResponseDto(User u);
+
+  @Mapping(target = "role", qualifiedByName = "toSummaryDto")
+  @Mapping(target = "createdAt", source = "createdAt")
+  @Mapping(target = "updatedAt", source = "updatedAt")
+  @Mapping(target = "deletedAt", source = "deletedAt")
+  UserResponseDto toListResponseDto(User u);
 }

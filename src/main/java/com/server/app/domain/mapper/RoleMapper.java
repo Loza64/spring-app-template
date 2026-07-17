@@ -4,6 +4,7 @@ import org.mapstruct.BeanMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.Named;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
 import com.server.app.domain.dto.role.RoleCreateDto;
@@ -29,4 +30,11 @@ public interface RoleMapper {
   @Mapping(target = "updatedAt", source = "updatedAt")
   @Mapping(target = "deletedAt", source = "deletedAt")
   RoleResponseDto toResponseDto(Role r);
+
+  @Named("toSummaryDto")
+  @Mapping(target = "permissions", ignore = true)
+  @Mapping(target = "createdAt", source = "createdAt")
+  @Mapping(target = "updatedAt", source = "updatedAt")
+  @Mapping(target = "deletedAt", source = "deletedAt")
+  RoleResponseDto toSummaryDto(Role r);
 }
