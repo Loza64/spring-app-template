@@ -109,7 +109,7 @@ public class RoleServiceImpl implements IBaseService<Long, RoleCreateDto, RoleUp
   @Transactional(readOnly = true)
   public PaginationResponse<RoleResponseDto> findAll(String search, Boolean showDeleted, Pageable pageable) {
     Page<Role> page = repository.findAll(RoleSpecifications.search(search, showDeleted), pageable);
-    return paginationMapper.toPaginationResponse(page.map(mapper::toResponseDto));
+    return paginationMapper.toPaginationResponse(page.map(mapper::toSummaryDto));
   }
 
   @Transactional

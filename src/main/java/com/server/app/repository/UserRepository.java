@@ -25,12 +25,12 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
   @Override
   @NonNull
-  @EntityGraph(attributePaths = "role", type = EntityGraphType.FETCH)
+  @EntityGraph(attributePaths = { "role" }, type = EntityGraphType.FETCH)
   List<User> findAll();
 
   @Override
   @NonNull
-  @EntityGraph(attributePaths = "role", type = EntityGraphType.FETCH)
+  @EntityGraph(attributePaths = { "role" }, type = EntityGraphType.FETCH)
   Page<User> findAll(@Nullable Specification<User> spec, @NonNull Pageable pageable);
 
   @Override
