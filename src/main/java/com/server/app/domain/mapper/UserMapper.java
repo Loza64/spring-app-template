@@ -16,6 +16,7 @@ public interface UserMapper {
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "blocked", ignore = true)
   @Mapping(target = "role", ignore = true)
+  @Mapping(target = "password", ignore = true)
   User toEntity(UserCreateDto dto);
 
   @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

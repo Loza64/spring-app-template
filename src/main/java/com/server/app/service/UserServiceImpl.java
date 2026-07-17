@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.server.app.common.exceptions.ConfictException;
@@ -31,6 +32,7 @@ public class UserServiceImpl implements IBaseService<Long, UserCreateDto, UserUp
   private final UserMapper userMapper;
   private final PaginationMapper paginationMapper;
   private final RoleRepository roleRepository;
+  private final PasswordEncoder encoder;
 
   @Override
   @Transactional
@@ -41,6 +43,7 @@ public class UserServiceImpl implements IBaseService<Long, UserCreateDto, UserUp
     }
 
     User user = userMapper.toEntity(dto);
+    user.setPassword(encoder.encode(dto.password()));
 
     if (dto.role() != null && dto.role().getId() != null) {
       user.setRole(roleRepository.findById(dto.role().getId())
