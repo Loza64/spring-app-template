@@ -15,9 +15,6 @@ import com.server.app.domain.model.Role;
 public interface RoleMapper {
   @Mapping(target = "id", ignore = true)
   @Mapping(target = "permissions", ignore = true)
-  @Mapping(target = "createdAt", ignore = true)
-  @Mapping(target = "updatedAt", ignore = true)
-  @Mapping(target = "deletedAt", ignore = true)
   Role toEntity(RoleCreateDto dto);
 
   @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

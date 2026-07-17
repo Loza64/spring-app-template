@@ -11,6 +11,7 @@ import java.util.Set;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Role extends BaseEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,6 +20,7 @@ public class Role extends BaseEntity {
   @Column(nullable = false, unique = true)
   private String name;
 
+  @Builder.Default
   private Boolean active = true;
 
   @ManyToMany(fetch = FetchType.LAZY)

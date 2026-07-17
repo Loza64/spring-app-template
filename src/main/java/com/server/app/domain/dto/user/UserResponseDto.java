@@ -1,5 +1,7 @@
 package com.server.app.domain.dto.user;
 
+import java.time.LocalDateTime;
+
 import com.server.app.domain.dto.role.RoleResponseDto;
 
 public record UserResponseDto(
@@ -9,5 +11,8 @@ public record UserResponseDto(
     String surname,
     String email,
     boolean blocked,
-    RoleResponseDto role) {
+    RoleResponseDto role,
+    LocalDateTime createdAt,
+    LocalDateTime updatedAt,
+    LocalDateTime deletedAt) {
 }

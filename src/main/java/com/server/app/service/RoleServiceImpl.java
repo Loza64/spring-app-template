@@ -3,6 +3,8 @@ package com.server.app.service;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -108,5 +110,23 @@ public class RoleServiceImpl implements IBaseService<Long, RoleCreateDto, RoleUp
   public PaginationResponse<RoleResponseDto> findAll(String search, Boolean showDeleted, Pageable pageable) {
     Page<Role> page = repository.findAll(RoleSpecifications.search(search, showDeleted), pageable);
     return paginationMapper.toPaginationResponse(page.map(mapper::toResponseDto));
+  }
+
+  @Transactional
+  public void createAllIfNotExists(List<String> names) {
+    if (names.isEmpty())
+      return;
+
+    Set<String> existing = repository.findAll().stream()
+        .map(Role::getName)
+        .collect(Collectors.toSet());
+
+    List<Role> toCreate = names.stream().filter(name -> !existing.contains(name))
+        .map(name -> Role.builder().name(name).build())
+        .toList();
+
+    if (!toCreate.isEmpty()) {
+      repository.saveAll(toCreate);
+    }
   }
 }

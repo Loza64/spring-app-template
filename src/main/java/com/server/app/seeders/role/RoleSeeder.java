@@ -1,0 +1,26 @@
+package com.server.app.seeders.role;
+
+import java.util.List;
+
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
+import org.springframework.stereotype.Component;
+
+import com.server.app.common.constants.RoleNames;
+import com.server.app.service.RoleServiceImpl;
+
+@Component
+public class RoleSeeder implements ApplicationListener<ApplicationReadyEvent> {
+
+  private final RoleServiceImpl roleService;
+
+  public RoleSeeder(RoleServiceImpl roleService) {
+    this.roleService = roleService;
+  }
+
+  @Override
+  public void onApplicationEvent(ApplicationReadyEvent event) {
+    roleService.createAllIfNotExists(
+        List.of(RoleNames.SUPER_ADMIN, RoleNames.ADMIN, RoleNames.CLIENT));
+  }
+}
