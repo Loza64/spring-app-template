@@ -1,8 +1,3 @@
-INSERT INTO roles (name,active) VALUES
-('SUPER_ADMIN', true),
-('ADMIN', true)
-ON CONFLICT (name) DO NOTHING;
-
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles r
@@ -20,3 +15,5 @@ ON CONFLICT DO NOTHING;
 select * from roles r ;
 select * from role_permissions;
 select * from permissions;
+
+delete from role_permissions ;
