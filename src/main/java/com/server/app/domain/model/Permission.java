@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "permissions")
+@Table(name = "permissions", uniqueConstraints = @UniqueConstraint(columnNames = { "path", "method" }))
 @Data
 @Builder
 @NoArgsConstructor

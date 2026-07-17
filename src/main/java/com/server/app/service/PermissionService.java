@@ -1,5 +1,9 @@
 package com.server.app.service;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import com.server.app.common.pagination.PaginationMapper;
 import com.server.app.common.pagination.PaginationResponse;
 import com.server.app.domain.dto.permission.PermissionResponseDto;
@@ -14,8 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.server.app.common.exceptions.NotFoundException;
 
-import java.util.Optional;
-
 @Service
 @RequiredArgsConstructor
 public class PermissionService {
@@ -25,14 +27,20 @@ public class PermissionService {
   private final PaginationMapper paginationMapper;
 
   @Transactional
-  public void createIfNotExists(String path, String method) {
-    Optional<Permission> existing = permissionRepository.findByPathAndMethod(path, method);
-    if (existing.isEmpty()) {
-      Permission permission = Permission.builder()
-          .path(path)
-          .method(method)
-          .build();
-      permissionRepository.save(permission);
+  public void createAllIfNotExists(List<Permission> candidates) {
+    if (candidates.isEmpty())
+      return;
+
+    Set<String> existing = permissionRepository.findAll().stream()
+        .map(p -> key(p.getPath(), p.getMethod()))
+        .collect(Collectors.toSet());
+
+    List<Permission> toCreate = candidates.stream()
+        .filter(p -> !existing.contains(key(p.getPath(), p.getMethod())))
+        .toList();
+
+    if (!toCreate.isEmpty()) {
+      permissionRepository.saveAll(toCreate);
     }
   }
 
@@ -49,5 +57,9 @@ public class PermissionService {
   public PaginationResponse<PermissionResponseDto> findAll(Pageable pageable) {
     Page<Permission> page = permissionRepository.findAll(pageable);
     return paginationMapper.toPaginationResponse(page.map(permissionMapper::toResponseDto));
+  }
+
+  private String key(String path, String method) {
+    return method + ":" + path;
   }
 }
