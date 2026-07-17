@@ -15,16 +15,19 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 public class WebConfig {
 
   @Bean
-  public HttpMessageConverter<Object> customJsonConverter() {
-    ObjectMapper mapper = new ObjectMapper()
+  ObjectMapper objectMapper() {
+    return new ObjectMapper()
         .registerModule(new JavaTimeModule())
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
-    return new MappingJackson2HttpMessageConverter(mapper);
   }
 
   @Bean
-  public PasswordEncoder encoder() {
+  HttpMessageConverter<Object> customJsonConverter(ObjectMapper objectMapper) {
+    return new MappingJackson2HttpMessageConverter(objectMapper);
+  }
+
+  @Bean
+  PasswordEncoder encoder() {
     return new BCryptPasswordEncoder();
   }
 }

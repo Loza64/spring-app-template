@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.context.annotation.Lazy;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -28,17 +27,15 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.AllArgsConstructor;
 
 @Component
+@AllArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
   private final JsonWebTokenProvider jwtUtil;
   private final UserServiceImpl userService;
-
-  public JwtAuthenticationFilter(@Lazy JsonWebTokenProvider jwtUtil, UserServiceImpl userService) {
-    this.jwtUtil = jwtUtil;
-    this.userService = userService;
-  }
+  private final ObjectMapper objectMapper;
 
   @Override
   protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
@@ -128,7 +125,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     response.setContentType("application/json");
 
     ExceptionResponse error = new ExceptionResponse(status, message);
-    String json = new ObjectMapper().writeValueAsString(error);
+    String json = objectMapper.writeValueAsString(error);
 
     response.getWriter().write(json);
   }

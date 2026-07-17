@@ -23,7 +23,11 @@ import jakarta.servlet.http.HttpServletResponse;
 public class DynamicAuthorizationFilter extends OncePerRequestFilter {
 
   private final AntPathMatcher pathMatcher = new AntPathMatcher();
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper;
+
+  public DynamicAuthorizationFilter(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
+  }
 
   @Override
   protected void doFilterInternal(
@@ -58,7 +62,6 @@ public class DynamicAuthorizationFilter extends OncePerRequestFilter {
     if (authentication != null && authentication.isAuthenticated()) {
 
       if (!isAuthorized(authentication, method, path)) {
-
         sendError(response, HttpServletResponse.SC_FORBIDDEN,
             "Acceso denegado: no tienes permisos para esta ruta: " + path);
 

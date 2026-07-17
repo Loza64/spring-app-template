@@ -1,7 +1,7 @@
-package com.server.app.common.exceptions;
+package com.server.app.controller;
 
-import java.util.stream.Collectors;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -12,32 +12,24 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import com.server.app.common.exceptions.BadRequestException;
+import com.server.app.common.exceptions.ConfictException;
+import com.server.app.common.exceptions.ForbiddenException;
+import com.server.app.common.exceptions.NotFoundException;
+import com.server.app.common.exceptions.ServerException;
+import com.server.app.common.exceptions.UnauthorizedException;
 import com.server.app.common.exceptions.response.ExceptionResponse;
 
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class AdviceController {
 
-  @ExceptionHandler(ExpiredJwtException.class)
-  public ResponseEntity<ExceptionResponse> handleExpiredJwt(ExpiredJwtException ex) {
-    return buildResponse(HttpStatus.UNAUTHORIZED, "Token expirado");
-  }
-
-  @ExceptionHandler(JwtException.class)
-  public ResponseEntity<ExceptionResponse> handleJwtException(JwtException ex) {
-    return buildResponse(HttpStatus.UNAUTHORIZED, "Token inválido");
-  }
+  private static final Logger log = LoggerFactory.getLogger(AdviceController.class);
 
   @ExceptionHandler(BadCredentialsException.class)
   public ResponseEntity<ExceptionResponse> handleBadCredentials(BadCredentialsException ex) {
     return buildResponse(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
-  }
-
-  @ExceptionHandler(AccessDeniedException.class)
-  public ResponseEntity<ExceptionResponse> handleAccessDenied(AccessDeniedException ex) {
-    return buildResponse(HttpStatus.FORBIDDEN, "Acceso denegado");
   }
 
   @ExceptionHandler(UnauthorizedException.class)
@@ -45,15 +37,42 @@ public class GlobalExceptionHandler {
     return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
   }
 
-  @ExceptionHandler(ServerException.class)
-  public ResponseEntity<ExceptionResponse> handleConflict(ServerException ex) {
-    return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+  // ── Autorización ────────────────────────────────────────────────────────
+
+  @ExceptionHandler(AccessDeniedException.class)
+  public ResponseEntity<ExceptionResponse> handleAccessDenied(AccessDeniedException ex) {
+    return buildResponse(HttpStatus.FORBIDDEN, "Acceso denegado");
   }
+
+  @ExceptionHandler(ForbiddenException.class)
+  public ResponseEntity<ExceptionResponse> handleForbidden(ForbiddenException ex) {
+    return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
+  }
+
+  // ── Recursos / conflictos de negocio ───────────────────────────────────
 
   @ExceptionHandler(NotFoundException.class)
   public ResponseEntity<ExceptionResponse> handleNotFound(NotFoundException ex) {
     return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
   }
+
+  @ExceptionHandler(ConfictException.class)
+  public ResponseEntity<ExceptionResponse> handleConflict(ConfictException ex) {
+    return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+  }
+
+  @ExceptionHandler(BadRequestException.class)
+  public ResponseEntity<ExceptionResponse> handleBadRequest(BadRequestException ex) {
+    return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+  }
+
+  @ExceptionHandler(ServerException.class)
+  public ResponseEntity<ExceptionResponse> handleServerException(ServerException ex) {
+    log.error("ServerException: {}", ex.getMessage(), ex);
+    return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+  }
+
+  // ── Validación de entrada ──────────────────────────────────────────────
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ExceptionResponse> handleValidation(MethodArgumentNotValidException ex) {
@@ -74,14 +93,18 @@ public class GlobalExceptionHandler {
     return buildResponse(HttpStatus.BAD_REQUEST, "Tipo de parámetro inválido: " + ex.getName());
   }
 
+  // ── Fallback ────────────────────────────────────────────────────────────
+
   @ExceptionHandler(RuntimeException.class)
   public ResponseEntity<ExceptionResponse> handleRuntime(RuntimeException ex) {
+    log.warn("RuntimeException sin handler específico: {}", ex.getClass().getSimpleName(), ex);
     return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
   }
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ExceptionResponse> handleGeneric(Exception ex) {
-    return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor: " + ex.getMessage());
+    log.error("Error no controlado", ex);
+    return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor");
   }
 
   private ResponseEntity<ExceptionResponse> buildResponse(HttpStatus status, String message) {

@@ -26,15 +26,9 @@ public interface RoleMapper {
   @Mapping(target = "deletedAt", ignore = true)
   void updateEntity(RoleUpdateDto dto, @MappingTarget Role entity);
 
-  @Mapping(target = "createdAt", source = "createdAt")
-  @Mapping(target = "updatedAt", source = "updatedAt")
-  @Mapping(target = "deletedAt", source = "deletedAt")
   RoleResponseDto toResponseDto(Role r);
 
   @Named("toSummaryDto")
   @Mapping(target = "permissions", ignore = true)
-  @Mapping(target = "createdAt", source = "createdAt")
-  @Mapping(target = "updatedAt", source = "updatedAt")
-  @Mapping(target = "deletedAt", source = "deletedAt")
   RoleResponseDto toSummaryDto(Role r);
 }

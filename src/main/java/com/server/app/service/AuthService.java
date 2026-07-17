@@ -44,7 +44,7 @@ public class AuthService {
         .orElseThrow(() -> new UnauthorizedException("Credenciales inválidas"));
 
     if (!passwordEncoder.matches(login.password(), profile.getPassword())) {
-      throw new ForbiddenException("La contraseña es incorrecta");
+      throw new UnauthorizedException("La contraseña es incorrecta");
     }
 
     UserResponseDto response = userMapper.toResponseDto(profile);
