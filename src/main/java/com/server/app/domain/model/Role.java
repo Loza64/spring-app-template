@@ -5,6 +5,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.util.Set;
 
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
+
 @Entity
 @Table(name = "roles")
 @Getter
@@ -25,5 +28,6 @@ public class Role extends BaseEntity {
 
   @ManyToMany(fetch = FetchType.LAZY)
   @JoinTable(name = "role_permissions", joinColumns = @JoinColumn(name = "role_id"), inverseJoinColumns = @JoinColumn(name = "permission_id"))
+  @Fetch(FetchMode.SUBSELECT)
   private Set<Permission> permissions;
 }
