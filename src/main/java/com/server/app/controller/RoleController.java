@@ -32,10 +32,10 @@ public class RoleController {
 
   @GetMapping
   public ResponseEntity<PaginationResponse<RoleResponseDto>> findAll(
-      @RequestParam(required = false) String query,
-      @RequestParam(required = false, defaultValue = "false") Boolean showDeleted,
+      @RequestParam(required = false) String search,
+      @RequestParam(required = false, defaultValue = "false") Boolean deleted,
       Pageable pageable) {
-    return ResponseEntity.ok(roleService.findAll(query, showDeleted, pageable));
+    return ResponseEntity.ok(roleService.findAll(search, deleted, pageable));
   }
 
   @GetMapping("/{id}")

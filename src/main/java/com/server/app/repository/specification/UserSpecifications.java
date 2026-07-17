@@ -9,7 +9,7 @@ import jakarta.persistence.criteria.Predicate;
 import com.server.app.domain.model.User;
 
 public class UserSpecifications {
-  public static Specification<User> search(String query, Long roleId, Boolean showDeleted) {
+  public static Specification<User> search(String search, Long roleId, Boolean showDeleted) {
 
     return (root, cq, cb) -> {
       List<Predicate> predicates = new ArrayList<>();
@@ -19,8 +19,8 @@ public class UserSpecifications {
         predicates.add(cb.isNull(root.get("deletedAt")));
       }
 
-      if (query != null && !query.isEmpty()) {
-        String q = "%" + query.toLowerCase() + "%";
+      if (search != null && !search.isEmpty()) {
+        String q = "%" + search.toLowerCase() + "%";
         predicates.add(cb.or(
             cb.like(cb.lower(root.get("username")), q),
             cb.like(cb.lower(root.get("name")), q),

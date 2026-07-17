@@ -32,11 +32,11 @@ public class UserController {
 
   @GetMapping
   public ResponseEntity<PaginationResponse<UserResponseDto>> findAll(
-      @RequestParam(required = false) String query,
-      @RequestParam(required = false) Long roleId,
+      @RequestParam(required = false) String search,
+      @RequestParam(required = false) Long role,
       @RequestParam(required = false, defaultValue = "false") Boolean deleted,
       Pageable pageable) {
-    return ResponseEntity.ok(userService.findAll(query, roleId, deleted, pageable));
+    return ResponseEntity.ok(userService.findAll(search, role, deleted, pageable));
   }
 
   @GetMapping("/{id}")

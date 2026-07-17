@@ -101,8 +101,8 @@ public class UserServiceImpl implements IBaseService<Long, UserCreateDto, UserUp
   }
 
   @Transactional(readOnly = true)
-  public PaginationResponse<UserResponseDto> findAll(String query, Long roleId, Boolean deleted, Pageable pageable) {
-    Page<User> page = repository.findAll(UserSpecifications.search(query, roleId, deleted), pageable);
+  public PaginationResponse<UserResponseDto> findAll(String search, Long roleId, Boolean deleted, Pageable pageable) {
+    Page<User> page = repository.findAll(UserSpecifications.search(search, roleId, deleted), pageable);
     return paginationMapper.toPaginationResponse(page.map(userMapper::toResponseDto));
   }
 }

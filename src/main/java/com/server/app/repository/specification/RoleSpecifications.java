@@ -11,7 +11,7 @@ import jakarta.persistence.criteria.Predicate;
 
 public class RoleSpecifications {
 
-  public static Specification<Role> search(String query, Boolean showDeleted) {
+  public static Specification<Role> search(String search, Boolean showDeleted) {
     return (root, cq, cb) -> {
       List<Predicate> predicates = new ArrayList<>();
 
@@ -21,8 +21,8 @@ public class RoleSpecifications {
         predicates.add(cb.isNull(root.get("deletedAt")));
       }
 
-      if (query != null && !query.isEmpty()) {
-        predicates.add(cb.like(cb.lower(root.get("name")), "%" + query.toLowerCase() + "%"));
+      if (search != null && !search.isEmpty()) {
+        predicates.add(cb.like(cb.lower(root.get("name")), "%" + search.toLowerCase() + "%"));
       }
 
       return cb.and(predicates.toArray(new Predicate[0]));
