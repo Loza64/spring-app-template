@@ -27,5 +27,8 @@ public interface UserMapper {
   @Mapping(target = "role", ignore = true)
   void updateEntity(UserUpdateDto dto, @MappingTarget User entity);
 
+  @Mapping(target = "createdAt", source = "createdAt")
+  @Mapping(target = "updatedAt", source = "updatedAt")
+  @Mapping(target = "deletedAt", source = "deletedAt")
   UserResponseDto toResponseDto(User u);
 }
