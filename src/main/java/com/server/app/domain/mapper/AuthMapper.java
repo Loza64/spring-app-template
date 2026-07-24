@@ -6,11 +6,12 @@ import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 
+import com.server.app.domain.dto.auth.ProfileResponseDto;
 import com.server.app.domain.dto.auth.SignUpDto;
 import com.server.app.domain.dto.auth.UpdateProfileDto;
 import com.server.app.domain.model.User;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = { RoleMapper.class })
 public interface AuthMapper {
   @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
   @Mapping(target = "id", ignore = true)
@@ -26,4 +27,6 @@ public interface AuthMapper {
   @Mapping(target = "blocked", ignore = true)
   @Mapping(target = "role", ignore = true)
   User toSignUp(SignUpDto dto);
+
+  ProfileResponseDto toResponseDto(User u);
 }

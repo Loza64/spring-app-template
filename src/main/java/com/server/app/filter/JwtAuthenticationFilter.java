@@ -17,8 +17,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.server.app.common.exceptions.response.ExceptionResponse;
 import com.server.app.config.JsonWebTokenProvider;
 import com.server.app.config.SecurityRules;
-import com.server.app.domain.dto.user.UserResponseDto;
-import com.server.app.service.UserServiceImpl;
+import com.server.app.domain.dto.auth.ProfileResponseDto;
+import com.server.app.service.AuthService;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -34,7 +34,7 @@ import lombok.AllArgsConstructor;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
   private final JsonWebTokenProvider jwtUtil;
-  private final UserServiceImpl userService;
+  private final AuthService authService;
   private final ObjectMapper objectMapper;
 
   @Override
@@ -79,7 +79,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return;
       }
 
-      UserResponseDto user = userService.findById(userId);
+      ProfileResponseDto user = authService.profile(userId);
 
       if (user.blocked()) {
         sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Your account has been blocked");

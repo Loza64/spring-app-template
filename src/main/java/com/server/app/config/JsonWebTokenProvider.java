@@ -9,7 +9,7 @@ import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.server.app.domain.dto.user.UserResponseDto;
+import com.server.app.domain.dto.auth.ProfileResponseDto;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -30,7 +30,7 @@ public class JsonWebTokenProvider {
     return Keys.hmacShaKeyFor(keyBytes);
   }
 
-  public String createToken(UserResponseDto user) {
+  public String createToken(ProfileResponseDto user) {
     Map<String, Object> json = new LinkedHashMap<>();
     json.put("id", user.id());
     return Jwts.builder()

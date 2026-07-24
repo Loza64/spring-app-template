@@ -12,12 +12,11 @@ import com.server.app.common.exceptions.UnauthorizedException;
 import com.server.app.config.JsonWebTokenProvider;
 import com.server.app.domain.dto.auth.AuthResponseDto;
 import com.server.app.domain.dto.auth.LoginDto;
+import com.server.app.domain.dto.auth.ProfileResponseDto;
 import com.server.app.domain.dto.auth.SignUpDto;
 import com.server.app.domain.dto.auth.UpdatePasswordDto;
 import com.server.app.domain.dto.auth.UpdateProfileDto;
-import com.server.app.domain.dto.user.UserResponseDto;
 import com.server.app.domain.mapper.AuthMapper;
-import com.server.app.domain.mapper.UserMapper;
 import com.server.app.domain.model.Role;
 import com.server.app.domain.model.User;
 import com.server.app.repository.RoleRepository;
@@ -33,7 +32,6 @@ public class AuthService {
   private final UserRepository userRepository;
   private final RoleRepository roleRepository;
   private final AuthMapper authMapper;
-  private final UserMapper userMapper;
   private final JsonWebTokenProvider jwt;
 
   private static final Long DEFAULT_ROLE_ID = 1L;
@@ -47,7 +45,7 @@ public class AuthService {
       throw new UnauthorizedException("La contraseña es incorrecta");
     }
 
-    UserResponseDto response = userMapper.toResponseDto(profile);
+    ProfileResponseDto response = authMapper.toResponseDto(profile);
     return new AuthResponseDto(jwt.createToken(response), response);
   }
 
@@ -66,23 +64,25 @@ public class AuthService {
     data.setRole(defaultRole);
 
     User savedUser = userRepository.save(data);
-    UserResponseDto response = userMapper.toResponseDto(savedUser);
+    ProfileResponseDto response = authMapper.toResponseDto(savedUser);
     return new AuthResponseDto(jwt.createToken(response), response);
   }
 
-  @Transactional
-  public UserResponseDto updateProfile(String token, UpdateProfileDto dto) {
-    Long id = jwt.extractIdUser(token);
-    User profile = validateAndGetUser(id);
-
-    authMapper.updateEntity(dto, profile);
-    return userMapper.toResponseDto(userRepository.save(profile));
+  public ProfileResponseDto profile(Long id) {
+    User profile = userRepository.findById(id).orElseThrow(() -> new NotFoundException("Profile not found"));
+    return authMapper.toResponseDto(profile);
   }
 
   @Transactional
-  public UserResponseDto updatePassword(String token, UpdatePasswordDto dto) {
-    User profile = validateAndGetUser(jwt.extractIdUser(token));
+  public ProfileResponseDto updateProfile(Long id, UpdateProfileDto dto) {
+    User profile = validateAndGetUser(id);
+    authMapper.updateEntity(dto, profile);
+    return authMapper.toResponseDto(userRepository.save(profile));
+  }
 
+  @Transactional
+  public ProfileResponseDto updatePassword(Long id, UpdatePasswordDto dto) {
+    User profile = validateAndGetUser(id);
     if (!passwordEncoder.matches(dto.currentPassword(), profile.getPassword()))
       throw new ForbiddenException("La contraseña actual es incorrecta");
 
@@ -93,13 +93,11 @@ public class AuthService {
       throw new BadRequestException("La nueva contraseña no puede ser igual a la anterior");
 
     profile.setPassword(passwordEncoder.encode(dto.newPassword()));
-    return userMapper.toResponseDto(userRepository.save(profile));
+    return authMapper.toResponseDto(userRepository.save(profile));
   }
 
   private User validateAndGetUser(Long id) {
-    User user = userRepository.findById(id)
-        .orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
-
+    User user = userRepository.findById(id).orElseThrow(() -> new NotFoundException("Usuario no encontrado"));
     if (user.isBlocked())
       throw new UnauthorizedException("Cuenta bloqueada");
     if (user.getDeletedAt() != null)

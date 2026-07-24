@@ -64,7 +64,6 @@ public class DynamicAuthorizationFilter extends OncePerRequestFilter {
       if (!isAuthorized(authentication, method, path)) {
         sendError(response, HttpServletResponse.SC_FORBIDDEN,
             "Acceso denegado: no tienes permisos para esta ruta: " + path);
-
         return;
       }
     }

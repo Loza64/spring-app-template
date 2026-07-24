@@ -8,16 +8,15 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.server.app.domain.dto.auth.AuthResponseDto;
 import com.server.app.domain.dto.auth.LoginDto;
+import com.server.app.domain.dto.auth.ProfileResponseDto;
 import com.server.app.domain.dto.auth.SignUpDto;
 import com.server.app.domain.dto.auth.UpdatePasswordDto;
 import com.server.app.domain.dto.auth.UpdateProfileDto;
-import com.server.app.domain.dto.user.UserResponseDto;
 import com.server.app.service.AuthService;
 
 import jakarta.validation.Valid;
@@ -41,23 +40,21 @@ public class AuthController {
   }
 
   @GetMapping("/profile")
-  public ResponseEntity<UserResponseDto> getProfile(@AuthenticationPrincipal UserResponseDto user) {
+  public ResponseEntity<ProfileResponseDto> getProfile(@AuthenticationPrincipal ProfileResponseDto user) {
     return ResponseEntity.ok(user);
   }
 
   @PutMapping("/profile")
-  public ResponseEntity<UserResponseDto> updateProfile(
-      @RequestHeader("Authorization") String authorization,
+  public ResponseEntity<ProfileResponseDto> updateProfile(
+      @AuthenticationPrincipal ProfileResponseDto user,
       @Valid @RequestBody UpdateProfileDto dto) {
-    String token = authorization.replace("Bearer ", "");
-    return ResponseEntity.ok(authService.updateProfile(token, dto));
+    return ResponseEntity.ok(authService.updateProfile(user.id(), dto));
   }
 
   @PatchMapping("/password")
-  public ResponseEntity<UserResponseDto> updatePassword(
-      @RequestHeader("Authorization") String authorization,
+  public ResponseEntity<ProfileResponseDto> updatePassword(
+      @AuthenticationPrincipal ProfileResponseDto user,
       @Valid @RequestBody UpdatePasswordDto dto) {
-    String token = authorization.replace("Bearer ", "");
-    return ResponseEntity.ok(authService.updatePassword(token, dto));
+    return ResponseEntity.ok(authService.updatePassword(user.id(), dto));
   }
 }
