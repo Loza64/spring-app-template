@@ -18,7 +18,8 @@ public class SecurityRules {
   public static final Set<String> IGNORED_EXACT = Set.of(
       "/error",
       "/swagger-ui.html",
-      "/docs.html");
+      "/docs.html",
+      "/actuator/health");
 
   public static final List<String> IGNORED_PREFIXES = List.of(
       "/v3/api-docs",
