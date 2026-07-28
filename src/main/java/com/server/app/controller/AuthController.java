@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.server.app.domain.dto.auth.AuthResponseDto;
 import com.server.app.domain.dto.auth.LoginDto;
 import com.server.app.domain.dto.auth.ProfileResponseDto;
+import com.server.app.domain.dto.auth.RefreshTokenDto;
 import com.server.app.domain.dto.auth.SignUpDto;
 import com.server.app.domain.dto.auth.UpdatePasswordDto;
 import com.server.app.domain.dto.auth.UpdateProfileDto;
@@ -37,6 +38,17 @@ public class AuthController {
   @PostMapping("/signup")
   public ResponseEntity<AuthResponseDto> signup(@Valid @RequestBody SignUpDto dto) {
     return ResponseEntity.status(HttpStatus.CREATED).body(authService.signup(dto));
+  }
+
+  @PostMapping("/refresh")
+  public ResponseEntity<AuthResponseDto> refresh(@Valid @RequestBody RefreshTokenDto dto) {
+    return ResponseEntity.ok(authService.refresh(dto.refreshToken()));
+  }
+
+  @PostMapping("/logout")
+  public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenDto dto) {
+    authService.logout(dto.refreshToken());
+    return ResponseEntity.noContent().build();
   }
 
   @GetMapping("/profile")

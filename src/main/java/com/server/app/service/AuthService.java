@@ -21,6 +21,7 @@ import com.server.app.domain.model.Role;
 import com.server.app.domain.model.User;
 import com.server.app.repository.RoleRepository;
 import com.server.app.repository.UserRepository;
+import com.server.app.service.RefreshTokenService.RotationResult;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,10 +34,11 @@ public class AuthService {
   private final RoleRepository roleRepository;
   private final AuthMapper authMapper;
   private final JsonWebTokenProvider jwt;
+  private final RefreshTokenService refreshTokenService;
 
   private static final Long DEFAULT_ROLE_ID = 1L;
 
-  @Transactional(readOnly = true)
+  @Transactional
   public AuthResponseDto login(LoginDto login) {
     User profile = userRepository.findByUsername(login.username())
         .orElseThrow(() -> new UnauthorizedException("Credenciales inválidas"));
@@ -45,8 +47,13 @@ public class AuthService {
       throw new UnauthorizedException("La contraseña es incorrecta");
     }
 
+    if (profile.isBlocked() || profile.getDeletedAt() != null) {
+      throw new UnauthorizedException("Cuenta inactiva o bloqueada");
+    }
+
     ProfileResponseDto response = authMapper.toResponseDto(profile);
-    return new AuthResponseDto(jwt.createToken(response), response);
+    String refreshToken = refreshTokenService.issue(profile);
+    return new AuthResponseDto(jwt.createToken(response), refreshToken, response);
   }
 
   @Transactional
@@ -65,7 +72,20 @@ public class AuthService {
 
     User savedUser = userRepository.save(data);
     ProfileResponseDto response = authMapper.toResponseDto(savedUser);
-    return new AuthResponseDto(jwt.createToken(response), response);
+    String refreshToken = refreshTokenService.issue(savedUser);
+    return new AuthResponseDto(jwt.createToken(response), refreshToken, response);
+  }
+
+  @Transactional
+  public AuthResponseDto refresh(String incomingToken) {
+    RotationResult result = refreshTokenService.rotate(incomingToken);
+    ProfileResponseDto response = authMapper.toResponseDto(result.user());
+    return new AuthResponseDto(jwt.createToken(response), result.refreshToken(), response);
+  }
+
+  @Transactional
+  public void logout(String incomingToken) {
+    refreshTokenService.revoke(incomingToken);
   }
 
   public ProfileResponseDto profile(Long id) {

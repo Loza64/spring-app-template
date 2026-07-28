@@ -8,13 +8,12 @@ public class SecurityRules {
 
   public static final Map<String, Set<String>> PUBLIC = Map.of(
       "GET", Set.of("/api/public/info"),
-      "POST", Set.of("/api/auth/login", "/api/auth/signup"));
+      "POST", Set.of("/api/auth/login", "/api/auth/signup", "/api/auth/refresh", "/api/auth/logout"));
 
   public static final Map<String, Set<String>> AUTH_ONLY = Map.of(
       "GET", Set.of("/api/auth/profile"),
       "PUT", Set.of("/api/auth/profile"),
-      "PATCH", Set.of("/api/auth/password"),
-      "POST", Set.of("/api/auth/logout"));
+      "PATCH", Set.of("/api/auth/password"));
 
   public static final Set<String> IGNORED_EXACT = Set.of(
       "/error",
