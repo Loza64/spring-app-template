@@ -2,6 +2,7 @@ package com.server.app.filter;
 
 import java.io.IOException;
 
+import com.server.app.common.constants.RoleNames;
 import com.server.app.common.exceptions.response.ExceptionResponse;
 import com.server.app.config.SecurityRules;
 
@@ -22,6 +23,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class DynamicAuthorizationFilter extends OncePerRequestFilter {
 
+  private static final String SUPER_ADMIN_AUTHORITY = "ROLE_" + RoleNames.SUPER_ADMIN;
   private final AntPathMatcher pathMatcher = new AntPathMatcher();
   private final ObjectMapper objectMapper;
 
@@ -61,6 +63,12 @@ public class DynamicAuthorizationFilter extends OncePerRequestFilter {
 
     if (authentication != null && authentication.isAuthenticated()) {
 
+      // 👑 SUPER_ADMIN: acceso total, no depende de la tabla role_permissions
+      if (isSuperAdmin(authentication)) {
+        filterChain.doFilter(request, response);
+        return;
+      }
+
       if (!isAuthorized(authentication, method, path)) {
         sendError(response, HttpServletResponse.SC_FORBIDDEN,
             "Acceso denegado: no tienes permisos para esta ruta: " + path);
@@ -69,6 +77,11 @@ public class DynamicAuthorizationFilter extends OncePerRequestFilter {
     }
 
     filterChain.doFilter(request, response);
+  }
+
+  private boolean isSuperAdmin(Authentication authentication) {
+    return authentication.getAuthorities().stream()
+        .anyMatch(a -> SUPER_ADMIN_AUTHORITY.equals(a.getAuthority()));
   }
 
   private boolean isAuthorized(Authentication authentication, String method, String path) {

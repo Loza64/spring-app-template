@@ -8,8 +8,10 @@ import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import com.server.app.common.constants.RoleNames;
 import com.server.app.common.exceptions.ConfictException;
 import com.server.app.common.exceptions.NotFoundException;
 import com.server.app.common.pagination.PaginationMapper;
@@ -107,8 +109,14 @@ public class RoleServiceImpl implements IBaseService<Long, RoleCreateDto, RoleUp
   }
 
   @Transactional(readOnly = true)
-  public PaginationResponse<RoleResponseDto> findAll(String search, Boolean showDeleted, Pageable pageable) {
-    Page<Role> page = repository.findAll(RoleSpecifications.search(search, showDeleted), pageable);
+  public PaginationResponse<RoleResponseDto> findAll(String search, Boolean showDeleted, Pageable pageable,
+      String currentUserRole) {
+    List<String> visibleRoles = RoleNames.visibleFrom(currentUserRole);
+
+    Specification<Role> spec = RoleSpecifications.search(search, showDeleted)
+        .and(RoleSpecifications.nameIn(visibleRoles));
+
+    Page<Role> page = repository.findAll(spec, pageable);
     return paginationMapper.toPaginationResponse(page.map(mapper::toSummaryDto));
   }
 

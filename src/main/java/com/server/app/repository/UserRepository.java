@@ -16,6 +16,9 @@ import org.springframework.lang.Nullable;
 import com.server.app.domain.model.User;
 
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
+
+  boolean existsByRole_Name(String name);
+
   boolean existsByEmail(String email);
 
   boolean existsByUsername(String username);

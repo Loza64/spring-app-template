@@ -4,6 +4,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.server.app.common.constants.RoleNames;
 import com.server.app.common.exceptions.BadRequestException;
 import com.server.app.common.exceptions.ConfictException;
 import com.server.app.common.exceptions.ForbiddenException;
@@ -36,7 +37,7 @@ public class AuthService {
   private final JsonWebTokenProvider jwt;
   private final RefreshTokenService refreshTokenService;
 
-  private static final Long DEFAULT_ROLE_ID = 1L;
+  private static final String DEFAULT_ROLE_NAME = RoleNames.ADMIN;
 
   @Transactional
   public AuthResponseDto login(LoginDto login) {
@@ -66,7 +67,7 @@ public class AuthService {
     User data = authMapper.toSignUp(dto);
     data.setPassword(passwordEncoder.encode(dto.password()));
 
-    Role defaultRole = roleRepository.findById(DEFAULT_ROLE_ID)
+    Role defaultRole = roleRepository.findByName(DEFAULT_ROLE_NAME)
         .orElseThrow(() -> new NotFoundException("Rol por defecto no configurado"));
     data.setRole(defaultRole);
 

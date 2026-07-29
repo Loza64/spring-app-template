@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.server.app.common.constants.RoleNames;
 import com.server.app.common.exceptions.ConfictException;
 import com.server.app.common.exceptions.NotFoundException;
 import com.server.app.common.pagination.PaginationMapper;
@@ -34,6 +35,8 @@ public class UserServiceImpl implements IBaseService<Long, UserCreateDto, UserUp
   private final RoleRepository roleRepository;
   private final PasswordEncoder encoder;
 
+  private static final String SUPER_ADMIN = RoleNames.SUPER_ADMIN;
+
   @Override
   @Transactional
   public UserResponseDto create(UserCreateDto dto) {
@@ -58,6 +61,10 @@ public class UserServiceImpl implements IBaseService<Long, UserCreateDto, UserUp
     User user = repository.findById(id)
         .orElseThrow(() -> new NotFoundException("Usuario no encontrado con ID: " + id));
 
+    if (user.getRole().getName().equals(SUPER_ADMIN)) {
+      throw new ConfictException("El usuario super admin no se puede modificar");
+    }
+
     userMapper.updateEntity(dto, user);
 
     if (dto.role() != null && dto.role().getId() != null) {
@@ -81,6 +88,10 @@ public class UserServiceImpl implements IBaseService<Long, UserCreateDto, UserUp
     User user = repository.findById(id)
         .orElseThrow(() -> new NotFoundException("Usuario no encontrado con ID: " + id));
 
+    if (user.getRole().getName().equals(SUPER_ADMIN)) {
+      throw new ConfictException("El usuario super admin no se puede eliminar");
+    }
+
     if (user.getDeletedAt() != null) {
       throw new ConfictException("El usuario ya se encuentra eliminado");
     }
@@ -94,6 +105,10 @@ public class UserServiceImpl implements IBaseService<Long, UserCreateDto, UserUp
   public void restore(Long id) {
     User user = repository.findById(id)
         .orElseThrow(() -> new NotFoundException("Usuario no encontrado con ID: " + id));
+
+    if (user.getRole().getName().equals(SUPER_ADMIN)) {
+      throw new ConfictException("El usuario super admin no se puede ser eliminado");
+    }
 
     if (user.getDeletedAt() == null) {
       throw new ConfictException("El usuario no está eliminado, no se puede restaurar");

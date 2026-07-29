@@ -3,6 +3,7 @@ package com.server.app.controller;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.server.app.common.pagination.PaginationResponse;
+import com.server.app.domain.dto.auth.ProfileResponseDto;
 import com.server.app.domain.dto.role.RoleCreateDto;
 import com.server.app.domain.dto.role.RoleResponseDto;
 import com.server.app.domain.dto.role.RoleUpdateDto;
@@ -34,8 +36,9 @@ public class RoleController {
   public ResponseEntity<PaginationResponse<RoleResponseDto>> findAll(
       @RequestParam(required = false) String search,
       @RequestParam(required = false, defaultValue = "false") Boolean deleted,
+      @AuthenticationPrincipal ProfileResponseDto currentUser,
       Pageable pageable) {
-    return ResponseEntity.ok(roleService.findAll(search, deleted, pageable));
+    return ResponseEntity.ok(roleService.findAll(search, deleted, pageable, currentUser.role().name()));
   }
 
   @GetMapping("/{id}")

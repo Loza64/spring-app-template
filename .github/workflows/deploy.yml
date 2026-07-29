@@ -25,6 +25,9 @@ jobs:
           CORS_ALLOWED_ORIGINS=http://localhost:5173
           SECURITY_JWT_SECRET_KEY=${{ secrets.SECURITY_JWT_SECRET_KEY }}
           SECURITY_JWT_EXPIRATION_TIME=86400000
+          SUPER_ADMIN_USERNAME=${{ secrets.SUPER_ADMIN_USERNAME }}
+          SUPER_ADMIN_EMAIL=${{ secrets.SUPER_ADMIN_EMAIL }}
+          SUPER_ADMIN_PASSWORD=${{ secrets.SUPER_ADMIN_PASSWORD }}
           EOF
 
       - name: Build and run (pre-develop)

@@ -1,110 +1,177 @@
-# Documentación Técnica — App (Spring Boot Backend)
+# Documentación Técnica — Backend `spring-app`
 
-## 1. Resumen del proyecto
+## 1. Resumen general
 
-API REST desarrollada en **Spring Boot 3.5.8 / Java 21**, con autenticación JWT, autorización dinámica basada en permisos (RBAC), soft delete y documentación OpenAPI/Swagger. Persiste en **PostgreSQL** vía JPA/Hibernate.
+API REST construida con **Spring Boot 3 + Java 17+** que gestiona **usuarios, roles y permisos**, con autenticación JWT y autorización dinámica por ruta. Persiste en PostgreSQL (Supabase) vía JPA/Hibernate.
 
-**Paquete base:** `com.server.app`
+**Paquete raíz:** `com.server.app` · **Clase principal:** `AppApplication`
+
+### Stack técnico
+- Spring Boot (Web, Security, Data JPA, Validation, Actuator)
+- Spring Security con filtros personalizados
+- JJWT (`io.jsonwebtoken`) para firmar/verificar JWT (HMAC)
+- MapStruct para mapeo Entity ↔ DTO
+- Lombok
+- springdoc-openapi (Swagger UI) con esquema Bearer
+- BCrypt para hash de contraseñas
+- PostgreSQL vía Hibernate
 
 ---
 
-## 2. Stack tecnológico
+## 2. Arquitectura por capas
 
-| Categoría | Tecnología |
+```
+controller/   → Endpoints REST
+service/      → Lógica de negocio
+repository/   → Acceso a datos (Spring Data JPA)
+domain/
+  model/      → Entidades JPA
+  dto/        → DTOs de entrada/salida por módulo (auth, user, role, permission, base)
+  mapper/     → Interfaces MapStruct (Entity ↔ DTO)
+config/       → Seguridad, CORS, JWT, OpenAPI, paginación, Jackson
+filter/       → Filtros de autenticación/autorización
+seeders/      → Poblado automático al arrancar (roles, permisos, super admin)
+common/
+  exceptions/ → Excepciones de negocio + manejador global
+  pagination/ → Wrapper estándar de respuestas paginadas
+```
+
+Los módulos `User` y `Role` implementan una interfaz genérica `IBaseService<ID, CreateDto, UpdateDto, ResponseDto>` con los métodos CRUD estándar (`create`, `update`, `findById`, `delete`, `restore`).
+
+---
+
+## 3. Modelo de datos
+
+### `BaseEntity` (`@MappedSuperclass`)
+Heredado por `User` y `Role`: `createdAt`, `updatedAt` (auto-actualizado en `@PreUpdate`), `deletedAt` (soft delete).
+
+### `User`
+`id`, `username` (único), `email` (único), `name`, `surname`, `password` (hash BCrypt), `blocked` (default `false`), `role` (`@ManyToOne` LAZY).
+
+### `Role`
+`id`, `name` (único), `active` (default `true`), `permissions` (`@ManyToMany` LAZY vía tabla `role_permissions`).
+
+### `Permission`
+`path` + `method` (constraint único combinado), `title` descriptivo editable.
+
+### `RefreshToken`
+`token` (hash SHA-256 del valor real), `familyId` (agrupa tokens rotados de una misma sesión), `used`, `revoked`, `user` (`@ManyToOne` EAGER), `expiresAt`.
+
+---
+
+## 4. Seguridad y autenticación
+
+### 4.1 Flujo de request
+```
+Request → CORS → JwtAuthenticationFilter → DynamicAuthorizationFilter → Controller
+```
+`SecurityConfig` desactiva CSRF, fuerza sesiones stateless y permite todas las rutas a nivel de Spring Security (`anyRequest().permitAll()`); el control de acceso real ocurre en los dos filtros personalizados.
+
+### 4.2 `SecurityRules` — clasificación de rutas
+- **`PUBLIC`**: sin token (`login`, `signup`, `refresh`, `logout`, `GET /api/public/info`)
+- **`AUTH_ONLY`**: requieren estar autenticado, sin permiso específico (`/api/auth/profile`, `/api/auth/password`)
+- **`IGNORED`**: infraestructura (Swagger, `/actuator/health`, `/error`)
+
+### 4.3 `JwtAuthenticationFilter`
+- Exige header `Authorization: Bearer <token>`.
+- Verifica firma/expiración, extrae `userId` del claim `id`.
+- Carga el perfil completo desde BD en cada request (refleja bloqueos/cambios de rol al instante).
+- Rechaza si el usuario está `blocked` o su rol está `inactive`.
+- Construye authorities `"METODO:/ruta"` (ej. `GET:/api/users`) + `ROLE_<NOMBRE_ROL>`.
+
+### 4.4 `DynamicAuthorizationFilter`
+Compara `method:path` del request contra las authorities del usuario usando `AntPathMatcher` (soporta wildcards `/api/users/**`). Sin match → `403 Forbidden`.
+
+**Bypass `SUPER_ADMIN`:** si el usuario tiene la authority `ROLE_SUPER_ADMIN`, el filtro deja pasar el request sin evaluar `role_permissions` — acceso total garantizado, independiente de la tabla de permisos.
+
+### 4.5 `JsonWebTokenProvider`
+Firma HMAC con clave Base64. El JWT solo contiene el `id` del usuario; rol, permisos y estado se resuelven en cada request desde BD. `expiration-time` configurable en milisegundos.
+
+### 4.6 Refresh tokens (`RefreshTokenService`)
+Rotación con detección de reuso:
+1. Al login/signup se emite un refresh token (UUID); se guarda su **hash SHA-256** junto a un `familyId`.
+2. En `/refresh`, si el token ya fue usado o está revocado → se revoca **toda la familia** y se lanza `UnauthorizedException`.
+3. Si es válido, se marca `used=true` y se emite uno nuevo con el mismo `familyId`.
+4. `/logout` revoca la familia completa.
+5. TTL de **7 días**.
+
+### 4.7 `PermissionSeeder`
+Al arrancar (`ApplicationReadyEvent`), escanea todos los endpoints reales registrados en Spring MVC, excluye `PUBLIC`/`AUTH_ONLY`/`IGNORED`, y crea en BD un `Permission` (path+method) por cada uno que no exista — el catálogo de permisos siempre refleja el código actual.
+
+### 4.8 `RoleSeeder` (`@Order(1)`)
+Crea, si no existen, los roles base: `SUPER_ADMIN`, `ADMIN`, `CLIENT` (constantes en `RoleNames`).
+
+### 4.9 `SuperAdminSeeder` (`@Order(2)`)
+Crea automáticamente el usuario `SUPER_ADMIN` al arrancar, garantizando que solo exista uno:
+- Verifica `userRepository.existsByRole_Name(RoleNames.SUPER_ADMIN)`; si ya existe, no hace nada.
+- Si el rol `SUPER_ADMIN` aún no existe en BD, lanza `IllegalStateException`.
+- Credenciales por variables de entorno (`security.super-admin.*` → `SUPER_ADMIN_USERNAME`, `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`).
+- Password guardado con `PasswordEncoder` (BCrypt).
+
+### 4.10 Protección del usuario `SUPER_ADMIN` (`UserServiceImpl`)
+`update`, `delete` y `restore` verifican si el usuario objetivo tiene rol `SUPER_ADMIN`; si es así, lanzan `ConfictException` y bloquean la operación. El único `SUPER_ADMIN` del sistema queda protegido de ser modificado o eliminado vía API.
+
+### 4.11 Listado jerárquico de roles
+`GET /api/roles` filtra según la jerarquía del usuario autenticado:
+
+| Rol autenticado | Roles visibles |
 |---|---|
-| Lenguaje / Runtime | Java 21 |
-| Framework | Spring Boot 3.5.8 (starter-parent) |
-| Persistencia | Spring Data JPA + Hibernate + PostgreSQL Driver |
-| Seguridad | Spring Security (stateless) + JJWT 0.12.6 |
-| Validación | spring-boot-starter-validation (Jakarta Validation) |
-| Mapeo Entity↔DTO | MapStruct 1.6.3 (+ lombok-mapstruct-binding) |
-| Documentación API | springdoc-openapi-starter-webmvc-ui 2.8.5 (Swagger UI) |
-| Utilidades | Lombok, jackson-datatype-jsr310, spring-dotenv |
-| Tests | spring-boot-starter-test, spring-security-test, H2 (in-memory) |
-| Build | Maven (`mvnw`) |
-| Contenedor | Docker multi-stage (Maven build → JRE Alpine runtime) |
+| `SUPER_ADMIN` | `SUPER_ADMIN`, `ADMIN`, `CLIENT` |
+| `ADMIN` | `ADMIN`, `CLIENT` |
+| `CLIENT` | `CLIENT` |
 
-`spring-dotenv` permite que Spring lea variables directamente del archivo `.env` incluso fuera de Docker (útil al correr con `./mvnw spring-boot:run` localmente).
+`RoleNames.HIERARCHY` define el orden; `RoleNames.visibleFrom(rol)` devuelve el rol dado y todo lo inferior. `RoleSpecifications.nameIn(...)` filtra por esos nombres, combinado con la specification de búsqueda/soft-delete existente. `RoleController` obtiene el rol actual vía `@AuthenticationPrincipal` y lo pasa al service.
 
 ---
 
-## 3. Arquitectura y estructura de paquetes
+## 5. Endpoints expuestos
 
-```
-com.server.app
-├── AppApplication.java            # Entry point (@SpringBootApplication)
-├── common/
-│   ├── constants/RoleNames.java   # SUPER_ADMIN, ADMIN, CLIENT
-│   ├── exceptions/                # BadRequest, Conflict, Forbidden, NotFound, Unauthorized, Server
-│   └── pagination/                # PaginationResponse<T>, PaginationMapper
-├── config/
-│   ├── SecurityConfig.java        # SecurityFilterChain (stateless, CORS, filtros JWT/RBAC)
-│   ├── SecurityRules.java         # Rutas públicas / solo-autenticado / ignoradas
-│   ├── JsonWebTokenProvider.java  # Emisión y verificación de JWT (HS-SHA, claim "id")
-│   ├── CorsConfig.java            # CORS_ALLOWED_ORIGINS
-│   ├── WebConfig.java             # ObjectMapper, BCryptPasswordEncoder
-│   ├── PageableConfig.java        # Paginación 1-indexada
-│   └── OpenApiConfig.java         # Swagger + esquema Bearer
-├── controller/                    # Auth, User, Role, Permission, Advice (manejo global de errores)
-├── domain/
-│   ├── dto/                       # DTOs por módulo (auth, user, role, permission, base)
-│   ├── mapper/                    # MapStruct: AuthMapper, UserMapper, RoleMapper, PermissionMapper
-│   └── model/                     # User, Role, Permission (+ BaseEntity)
-├── filter/
-│   ├── JwtAuthenticationFilter.java     # Valida Bearer token, carga usuario, setea Authorities
-│   └── DynamicAuthorizationFilter.java  # Autoriza por permisos dinámicos (method:path)
-├── repository/                    # JPA repos + Specifications (User, Role)
-├── seeders/
-│   ├── permission/PermissionSeeder.java  # Escanea endpoints reales y crea permisos faltantes
-│   └── role/RoleSeeder.java              # Crea roles base al arrancar
-└── service/                       # AuthService, UserServiceImpl, RoleServiceImpl, PermissionService
-```
-
-### Modelo de datos (entidades)
-
-- **BaseEntity** (`@MappedSuperclass`): `createdAt`, `updatedAt` (auto en `@PreUpdate`), `deletedAt` (soft delete).
-- **User**: `id, username (unique), name, surname, email (unique), password, blocked, role (ManyToOne → Role)`.
-- **Role**: `id, name (unique), active, permissions (ManyToMany → Permission vía tabla role_permissions)`.
-- **Permission**: `id, path, method, title`, único por `(path, method)`.
-
-### Flujo de seguridad
-
-1. **`JwtAuthenticationFilter`**: rutas públicas (`SecurityRules.PUBLIC`, ej. `POST /api/auth/login`, `POST /api/auth/signup`) e ignoradas (Swagger, `/error`) no requieren token. El resto exige header `Authorization: Bearer <token>`. Extrae el `id` del claim, busca el usuario, valida que no esté `blocked` y que su rol esté `active`, y construye las `GrantedAuthority` como `"METHOD:/path"` (uno por cada permiso del rol) más `ROLE_<nombre>`.
-2. **`DynamicAuthorizationFilter`**: para rutas que no son públicas ni "solo-autenticado" (`SecurityRules.AUTH_ONLY`), verifica que el usuario autenticado tenga una authority cuyo método y patrón (`AntPathMatcher`) coincidan con la ruta solicitada; si no, responde `403`.
-3. **`PermissionSeeder`** (al arrancar la app, `ApplicationReadyEvent`): inspecciona todos los `@RequestMapping` reales registrados en Spring MVC y crea en BD los permisos (`method:path`) que no sean públicos/ignorados/auth-only y aún no existan — así los permisos siempre reflejan los endpoints reales del código.
-4. **`RoleSeeder`**: crea los roles `SUPER_ADMIN`, `ADMIN`, `CLIENT` si no existen.
-5. `script.sql` es un script manual de ejemplo para asignar todos los permisos a `SUPER_ADMIN` y los `GET` a `ADMIN`.
-
-### Endpoints principales
-
-| Método | Ruta | Auth | Descripción |
+### `/api/auth` (`AuthController`)
+| Método | Ruta | Acceso | Descripción |
 |---|---|---|---|
-| POST | `/api/auth/login` | Pública | Login, retorna `{token, data: UserResponseDto}` |
-| POST | `/api/auth/signup` | Pública | Registro |
-| GET | `/api/auth/profile` | Solo autenticado | Perfil del usuario actual |
-| PUT | `/api/auth/profile` | Solo autenticado | Actualizar perfil |
-| PATCH | `/api/auth/password` | Solo autenticado | Cambiar contraseña |
-| GET/POST | `/api/users` | Por permiso | Listado paginado (`search`, `role`, `deleted`) / creación |
-| GET/PUT/DELETE | `/api/users/{id}` | Por permiso | CRUD + soft delete |
-| PATCH | `/api/users/{id}/restore` | Por permiso | Restaurar soft-deleted |
-| GET/POST/PUT/DELETE | `/api/roles` (y `/{id}`) | Por permiso | CRUD de roles + restore |
-| GET/PUT | `/api/permissions` (y `/{id}`) | Por permiso | Listado y edición de permisos (títulos) |
+| POST | `/login` | público | Retorna `AuthResponseDto` (JWT + refresh + perfil) |
+| POST | `/signup` | público | Crea usuario con rol `ADMIN` por defecto, 201 + tokens |
+| POST | `/refresh` | público | Rota el refresh token |
+| POST | `/logout` | público | Revoca la familia del refresh token |
+| GET | `/profile` | autenticado | Perfil del usuario actual |
+| PUT | `/profile` | autenticado | Actualiza username/name/surname/email |
+| PATCH | `/password` | autenticado | Cambia contraseña |
 
-Paginación: `PaginationResponse<T>` con `{ data, pagination: { page, pageSize, pageCount, total } }`, páginas 1-indexadas (`PageableConfig`).
+### `/api/users` (`UserController`) — requiere permiso explícito
+`GET /` (paginado, filtros `search`, `role`, `deleted`), `GET /{id}`, `POST /`, `PUT /{id}`, `DELETE /{id}` (soft delete), `PATCH /{id}/restore`.
 
-### Documentación OpenAPI
+### `/api/roles` (`RoleController`)
+`GET /` (paginado, filtros `search`, `deleted`, filtrado jerárquico automático), `GET /{id}`, `POST /`, `PUT /{id}`, `DELETE /{id}` (soft delete), `PATCH /{id}/restore`.
 
-- Swagger UI: `swagger-ui.html` → `/swagger-ui/index.html`
-- JSON OpenAPI: `/v3/api-docs`
-- Autenticación en Swagger vía esquema Bearer (`OpenApiConfig`).
+### `/api/permissions` (`PermissionController`)
+`GET /` (paginado), `PUT /{id}` (solo editable el `title`).
+
+Todas las respuestas paginadas usan `PaginationResponse<T>` (`data` + metadata: `page` 1-indexado, `pageSize`, `pageCount`, `total`).
 
 ---
 
-## 4. Configuración vía variables de entorno
+## 6. Manejo de errores (`AdviceController`)
 
-Archivo `.env` (no versionado; existe `.env.example` como plantilla) inyectado en `application.properties`:
+`@RestControllerAdvice` global que traduce excepciones a `ExceptionResponse { status, message }`:
 
-```properties
+| Excepción | HTTP |
+|---|---|
+| `BadCredentialsException` / `UnauthorizedException` | 401 |
+| `AccessDeniedException` / `ForbiddenException` | 403 |
+| `NotFoundException` | 404 |
+| `ConfictException` | 409 |
+| `BadRequestException` | 400 |
+| `ServerException` | 500 |
+| `MethodArgumentNotValidException` / `MissingServletRequestParameterException` / `MethodArgumentTypeMismatchException` | 400 |
+| `RuntimeException` genérica | 400 |
+| `Exception` genérica | 500 |
+
+---
+
+## 7. Configuración (`application.properties`)
+
+Todo alimentado por variables de entorno:
+```
 server.port=${SERVER_PORT}
 spring.application.name=${SPRING_APPLICATION_NAME}
 
@@ -122,207 +189,59 @@ spring.cors.allowed.origins=${CORS_ALLOWED_ORIGINS}
 
 security.jwt.secret-key=${SECURITY_JWT_SECRET_KEY}
 security.jwt.expiration-time=${SECURITY_JWT_EXPIRATION_TIME}
+
+springdoc.api-docs.path=/v3/api-docs
+springdoc.swagger-ui.path=/swagger-ui.html
+springdoc.swagger-ui.operationsSorter=method
+spring.jackson.serialization.write-dates-as-timestamps=false
+
+management.endpoints.web.exposure.include=health
+management.endpoint.health.show-details=never
+
+security.super-admin.username=${SUPER_ADMIN_USERNAME}
+security.super-admin.email=${SUPER_ADMIN_EMAIL}
+security.super-admin.password=${SUPER_ADMIN_PASSWORD}
 ```
-
-| Variable | Ejemplo local (`.env`) | Notas |
-|---|---|---|
-| `SERVER_PORT` | `3000` | Puerto expuesto por la app y mapeado en `docker-compose.yml` |
-| `SPRING_APPLICATION_NAME` | `app` | |
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://localhost:5432/spring-app` | **Cambia según el entorno** (ver sección 5) |
-| `SPRING_DATASOURCE_USERNAME` | `postgres` | |
-| `SPRING_DATASOURCE_PASSWORD` | `-change_me` | |
-| `SPRING_DATASOURCE_DRIVER_CLASS_NAME` | `org.postgresql.Driver` | |
-| `SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT` | `org.hibernate.dialect.PostgreSQLDialect` | |
-| `SPRING_JPA_HIBERNATE_DDL_AUTO` | `update` | Hibernate crea/actualiza el esquema automáticamente |
-| `SPRING_JPA_SHOW_SQL` | `false` | |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Frontend permitido |
-| `SECURITY_JWT_SECRET_KEY` | (Base64, 512 bits) | **Regenerar por entorno**, nunca reusar la de ejemplo en producción |
-| `SECURITY_JWT_EXPIRATION_TIME` | `86400000` | ms (24h) |
----
-
-## 5. Docker y conexión a la Base de Datos (foco principal)
-
-### 5.1 Piezas involucradas
-
-1. **`Dockerfile`** (multi-stage): compila con `maven:3.9.8-eclipse-temurin-21`, corre en `eclipse-temurin:21-jre-alpine` como usuario no-root `springboot`. Expone el puerto **3000** (nota: el `HEALTHCHECK` interno apunta a `http://localhost:4000/actuator/health`, un puerto distinto — ver advertencia abajo).
-2. **`docker-compose.yml`** (este proyecto, la API):
-
-```yaml
-services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: spring-app
-    restart: unless-stopped
-    ports:
-      - "${SERVER_PORT}:${SERVER_PORT}"
-    env_file:
-      - .env
-    networks:
-      - postgres_network
-
-networks:
-  postgres_network:
-    external: true
-```
-
-   La API **no levanta su propio Postgres**: se conecta a una red Docker **externa** llamada `postgres_network`, que debe existir previamente (creada por otro `docker-compose`).
-
-3. **`docker-compose.yaml` del contenedor de Postgres** (repo `Loza64/docker-containers`, ruta `database/postgres/`):
-
-```yaml
-services:
-  postgres:
-    image: postgres:latest
-    container_name: some-postgres
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
-      POSTGRES_DB: ${POSTGRES_DB:-app_db}
-    volumes:
-      - data:/var/lib/postgresql
-      - ./sql:/docker-entrypoint-initdb.d:ro
-    networks:
-      - network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-networks:
-  network:
-    driver: bridge
-
-volumes:
-  data:
-```
-
-### 5.2 Cómo encajan las dos redes
-
-Docker Compose nombra las redes definidas dentro de un `docker-compose.yaml` como `<nombre_del_proyecto>_<clave_red>`. El nombre del proyecto por defecto es el **nombre de la carpeta** donde se ejecuta el compose (o el que se pase con `-p`).
-
-- El compose de Postgres vive en la carpeta `postgres/` y define la red con clave `network`.
-- Al levantarlo desde esa carpeta (`docker compose up -d`), Docker crea la red real **`postgres_network`** (`postgres` + `_` + `network`).
-- Ese es exactamente el nombre que el `docker-compose.yml` de esta API espera como red **externa**: `postgres_network`.
-
-**Por eso el orden de arranque importa:**
-
-```bash
-# 1) Levantar primero el contenedor de Postgres (crea la red externa)
-cd docker-containers/database/postgres
-docker compose up -d
-
-# 2) Verificar que la red se llame exactamente "postgres_network"
-docker network ls | grep postgres_network
-
-# 3) Levantar la API, que se conecta a esa red externa
-cd /ruta/al/proyecto/app
-docker compose up -d --build
-```
-
-Si el compose de Postgres se ejecuta desde una carpeta con otro nombre (o con `-p otro_nombre`), la red resultante no se llamará `postgres_network` y el `docker compose up` de la API fallará con un error como:
-`network postgres_network declared as external, but could not be found`.
-
-Solución en ese caso: crear la red manualmente antes de levantar Postgres, fijando el nombre:
-
-```bash
-docker network create postgres_network
-```
-
-y añadir en el compose de Postgres:
-
-```yaml
-networks:
-  network:
-    external: true
-    name: postgres_network
-```
-
-(o simplemente forzar el nombre del proyecto con `docker compose -p postgres up -d` desde cualquier carpeta).
-
-### 5.3 Host y puerto de conexión desde la API
-
-Como ambos contenedores (`spring-app` y `some-postgres`) comparten la misma red Docker (`postgres_network`), Docker resuelve por nombre de contenedor. Esto significa que **dentro de Docker**, `SPRING_DATASOURCE_URL` **no debe usar `localhost`** (eso apuntaría al propio contenedor de la API), sino el nombre del contenedor de Postgres:
-
-```env
-SPRING_DATASOURCE_URL=jdbc:postgresql://some-postgres:5432/app_db
-SPRING_DATASOURCE_USERNAME=postgres
-SPRING_DATASOURCE_PASSWORD=change_me
-```
-
-(los valores de usuario/contraseña/DB deben coincidir con `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` definidos al levantar el contenedor de Postgres).
-
-El `.env` actual del proyecto tiene `jdbc:postgresql://localhost:5432/spring-app`, que **solo funciona si la API corre fuera de Docker** (ej. `./mvnw spring-boot:run` en tu máquina) apuntando a un Postgres publicado en el puerto `5432` del host. Si vas a correr la API **dentro** del contenedor, cambia el host a `some-postgres` como se explicó arriba.
-
-### 5.4 Resumen rápido: dos escenarios de conexión
-
-| Escenario | Dónde corre la API | Host en `SPRING_DATASOURCE_URL` | Requiere |
-|---|---|---|---|
-| Desarrollo local (sin Docker para la API) | `./mvnw spring-boot:run` en el host | `localhost` | Postgres publicado en `5432:5432` (el compose ya lo hace) |
-| API en contenedor, misma red que Postgres | `docker compose up` (API) | `some-postgres` (nombre del contenedor) | Red externa `postgres_network` ya creada por el compose de Postgres |
-
-### 5.5 Advertencias detectadas en la configuración Docker actual
-
-- **Puerto de healthcheck inconsistente**: el `Dockerfile` expone `3000` y hace `HEALTHCHECK` contra `http://localhost:4000/actuator/health`, pero no hay dependencia `spring-boot-starter-actuator` expuesta en `4000` — el puerto de la app es `${SERVER_PORT}` (3000 según `.env`). Conviene alinear el healthcheck al mismo puerto que `SERVER_PORT`, o exponer explícitamente `/actuator/health` (ya está el starter incluido en `pom.xml`) en el puerto correcto.
-- **Nombre de base de datos distinto entre archivos**: `.env` usa `spring-app` como nombre de BD, mientras el compose de Postgres usa por defecto `app_db`. Deben coincidir para que la conexión funcione.
-- El `Dockerfile` espera un directorio `.mvn` (`COPY .mvn .mvn`) que no aparece en el zip subido; si falta en el repo real, el build de Docker fallará. Confirmar que exista `.mvn/wrapper/maven-wrapper.properties` junto al `mvnw`.
+`spring.jpa.open-in-view=false`, Swagger en `/v3/api-docs` y `/swagger-ui.html`, solo se expone el endpoint `health` de Actuator sin detalles.
 
 ---
 
-## 6. Cómo ejecutar el proyecto
+## 8. Paginación y búsqueda
 
-### 6.1 Localmente (sin Docker para la API)
-
-```bash
-# 1. Levantar solo Postgres (contenedor externo)
-cd docker-containers/database/postgres
-docker compose up -d
-
-# 2. Clonar el proyecto y crear el .env a partir de la plantilla
-#    (.env no está en el repo por estar en .gitignore)
-cd /ruta/al/proyecto/app
-cp .env.example .env
-# Editar .env: host localhost y el mismo usuario/db/password que el contenedor de Postgres
-
-# 3. Ejecutar la app
-./mvnw spring-boot:run
-```
-
-### 6.2 Todo en contenedores
-
-```bash
-cd docker-containers/database/postgres
-docker compose up -d          # crea la red externa "postgres_network"
-
-cd /ruta/al/proyecto/app
-cp .env.example .env
-# Editar .env: SPRING_DATASOURCE_URL=jdbc:postgresql://some-postgres:5432/<POSTGRES_DB>
-#              usuario/password/DB deben coincidir con los del contenedor de Postgres
-docker compose up -d --build
-```
-
-Verificar:
-
-```bash
-docker ps                                   # spring-app y some-postgres corriendo
-docker logs spring-app                      # revisar arranque / conexión a BD
-curl http://localhost:3000/swagger-ui.html  # Swagger disponible
-```
+- `PageableConfig` fuerza que `page` sea **1-indexado** en la API.
+- `RoleSpecifications` y `UserSpecifications` filtran por `deletedAt`, texto (`LIKE` case-insensitive) y, en usuarios, por `roleId`.
+- `EntityGraph` en los repositorios evita el problema N+1 (ej. `UserRepository.findById` trae `role` y `role.permissions` en una sola consulta).
 
 ---
 
-## 7. Manejo de errores
+## 9. Mapeo de datos (MapStruct)
 
-`AdviceController` (junto con `common/exceptions/*`) centraliza excepciones de negocio (`BadRequestException`, `ConfictException`, `ForbiddenException`, `NotFoundException`, `UnauthorizedException`, `ServerException`), devueltas como `ExceptionResponse { status, message }` en JSON — el mismo formato que generan los filtros de seguridad ante fallos de autenticación/autorización.
+- `toEntity` ignora campos gestionados por el servidor (`id`, `password`, `blocked`, `role`, fechas de auditoría).
+- `updateEntity` usa `@MappingTarget` + `NullValuePropertyMappingStrategy.IGNORE` → actualización parcial (un campo `null` no sobrescribe el valor existente).
+- `RoleMapper` expone `toSummaryDto` (sin permisos) para listados, reduciendo el payload.
 
 ---
+
+## 10. Script SQL de asignación de permisos
+
+Complementa al `PermissionSeeder`: mientras este crea los permisos automáticamente, este script asigna permisos a roles en `role_permissions`.
+
+```sql
+-- ADMIN recibe solo los permisos de lectura (method = 'GET')
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.name = 'ADMIN' AND p.method = 'GET'
+ON CONFLICT DO NOTHING;
+
+-- Verificación / inspección
+select * from roles r ;
+select * from role_permissions;
+select * from permissions;
+
+-- Reset completo de asignaciones
+delete from role_permissions ;
+```
+
+`SUPER_ADMIN` no necesita ningún `INSERT` — tiene acceso total vía el bypass del filtro (§4.4). `CLIENT` no recibe ningún permiso por este script; su acceso queda limitado a las rutas `AUTH_ONLY`/`PUBLIC`. El `ON CONFLICT DO NOTHING` hace el script idempotente (requiere una constraint única `(role_id, permission_id)` en la tabla).

@@ -13,5 +13,20 @@
     "name": "security.jwt.expiration-time",
     "type": "java.lang.String",
     "description": "A description for 'security.jwt.expiration-time'"
+  },
+  {
+    "name": "security.super-admin.username",
+    "type": "java.lang.String",
+    "description": "A description for 'security.super-admin.username'"
+  },
+  {
+    "name": "security.super-admin.email",
+    "type": "java.lang.String",
+    "description": "A description for 'security.super-admin.email'"
+  },
+  {
+    "name": "security.super-admin.password",
+    "type": "java.lang.String",
+    "description": "A description for 'security.super-admin.password'"
   }
 ]}
