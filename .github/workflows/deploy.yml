@@ -10,6 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: "maven"
+
       - name: Create .env for testing
         run: |
           cat <<EOF > .env
@@ -30,21 +37,30 @@ jobs:
           SUPER_ADMIN_PASSWORD=${{ secrets.SUPER_ADMIN_PASSWORD }}
           EOF
 
-      - name: Build and run (pre-develop)
-        run: docker compose -f docker-compose.test.yml up --build -d
+      - name: Build and run container natively
+        run: |
+          docker build -t spring-app-test .
+          docker run -d --name spring-app-test --env-file .env -p 3000:3000 spring-app-test
 
       - name: Wait and check health
-        run: sleep 15 && curl --fail http://localhost:3000/actuator/health || (docker compose -f docker-compose.test.yml logs && exit 1)
+        run: sleep 15 && curl --fail http://localhost:3000/actuator/health || (docker logs spring-app-test && exit 1)
 
       - name: Tear down
         if: always()
-        run: docker compose -f docker-compose.test.yml down
+        run: docker rm -f spring-app-test || true
 
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: "maven"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -70,19 +86,24 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # deploy:
-  #   needs: build-and-push
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Deploy to VPS
-  #       uses: appleboy/ssh-action@v1.0.3
-  #       with:
-  #         host: ${{ secrets.VPS_HOST }}
-  #         username: ${{ secrets.VPS_USER }}
-  #         key: ${{ secrets.VPS_SSH_KEY }}
-  #         port: ${{ secrets.VPS_PORT }}
-  #         script: |
-  #           cd /opt/spring-app
-  #           docker compose -f docker-compose.prod.yml pull
-  #           docker compose -f docker-compose.prod.yml up -d
-  #           docker image prune -f
+# deploy:
+#   needs: test
+#   runs-on: ubuntu-latest
+#   steps:
+#     - uses: actions/checkout@v4
+#
+#     - name: Deploy to VPS / AWS EC2 via SSH
+#       uses: appleboy/ssh-action@v1.0.3
+#       with:
+#         host: ${{ secrets.VPS_HOST }}
+#         username: ${{ secrets.VPS_USER }}
+#         key: ${{ secrets.VPS_SSH_KEY }}
+#         port: ${{ secrets.VPS_PORT }}
+#         script: |
+#           cd /opt/spring-app
+#           git pull origin main
+#           docker build -t spring-app:latest .
+#           docker stop spring-app || true
+#           docker rm spring-app || true
+#           docker run -d --name spring-app --restart unless-stopped --env-file .env -p 3000:3000 spring-app:latest
+#           docker image prune -f
