@@ -1,6 +1,6 @@
 services:
   api:
-    image: loza64/app:latest
+    image: loza64/spring-app:latest
     container_name: spring-app
     restart: unless-stopped
     ports:

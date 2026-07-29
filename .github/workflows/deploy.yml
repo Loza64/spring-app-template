@@ -62,8 +62,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/app:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/app:${{ steps.vars.outputs.sha_short }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/spring-app:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/spring-app:${{ steps.vars.outputs.sha_short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
