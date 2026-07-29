@@ -28,14 +28,14 @@ jobs:
           EOF
 
       - name: Build and run (pre-develop)
-        run: docker compose -f docker-compose.predevelop.yml up --build -d
+        run: docker compose -f docker-compose.test.yml up --build -d
 
       - name: Wait and check health
-        run: sleep 15 && curl --fail http://localhost:3000/actuator/health || (docker compose -f docker-compose.predevelop.yml logs && exit 1)
+        run: sleep 15 && curl --fail http://localhost:3000/actuator/health || (docker compose -f docker-compose.test.yml logs && exit 1)
 
       - name: Tear down
         if: always()
-        run: docker compose -f docker-compose.predevelop.yml down
+        run: docker compose -f docker-compose.test.yml down
 
   build-and-push:
     needs: test
