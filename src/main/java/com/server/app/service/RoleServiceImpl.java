@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import com.server.app.common.constants.RoleNames;
 import com.server.app.common.exceptions.ConfictException;
+import com.server.app.common.exceptions.ForbiddenException;
 import com.server.app.common.exceptions.NotFoundException;
 import com.server.app.common.pagination.PaginationMapper;
 import com.server.app.common.pagination.PaginationResponse;
@@ -62,6 +63,10 @@ public class RoleServiceImpl implements IBaseService<Long, RoleCreateDto, RoleUp
     Role role = repository.findById(id)
         .orElseThrow(() -> new NotFoundException("Rol no encontrado con ID: " + id));
 
+    if (RoleNames.SUPER_ADMIN.equals(role.getName())) {
+      throw new ForbiddenException("El rol SUPER_ADMIN no puede ser editado");
+    }
+
     mapper.updateEntity(dto, role);
 
     if (dto.permissions() != null) {
@@ -109,12 +114,8 @@ public class RoleServiceImpl implements IBaseService<Long, RoleCreateDto, RoleUp
   }
 
   @Transactional(readOnly = true)
-  public PaginationResponse<RoleResponseDto> findAll(String search, Boolean showDeleted, Pageable pageable,
-      String currentUserRole) {
-    List<String> visibleRoles = RoleNames.visibleFrom(currentUserRole);
-
-    Specification<Role> spec = RoleSpecifications.search(search, showDeleted)
-        .and(RoleSpecifications.nameIn(visibleRoles));
+  public PaginationResponse<RoleResponseDto> findAll(String search, Boolean showDeleted, Pageable pageable) {
+    Specification<Role> spec = RoleSpecifications.search(search, showDeleted);
 
     Page<Role> page = repository.findAll(spec, pageable);
     return paginationMapper.toPaginationResponse(page.map(mapper::toSummaryDto));

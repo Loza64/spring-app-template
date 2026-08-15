@@ -28,8 +28,4 @@ public class RoleSpecifications {
       return cb.and(predicates.toArray(new Predicate[0]));
     };
   }
-
-  public static Specification<Role> nameIn(List<String> names) {
-    return (root, cq, cb) -> root.get("name").in(names);
-  }
 }

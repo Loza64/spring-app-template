@@ -12,12 +12,4 @@ public final class RoleNames {
 
   private RoleNames() {
   }
-
-  public static List<String> visibleFrom(String roleName) {
-    int idx = HIERARCHY.indexOf(roleName);
-    if (idx < 0) {
-      return List.of(roleName);
-    }
-    return HIERARCHY.subList(idx, HIERARCHY.size());
-  }
 }
