@@ -23,7 +23,7 @@ public class RoleSeeder implements ApplicationListener<ApplicationReadyEvent> {
 
   @Override
   public void onApplicationEvent(@NonNull ApplicationReadyEvent event) {
-    roleService.createAllIfNotExists(
-        List.of(RoleNames.SUPER_ADMIN, RoleNames.ADMIN, RoleNames.CLIENT));
+    roleService.createAllIfNotExists(List.of(RoleNames.SUPER_ADMIN, RoleNames.ADMIN, RoleNames.CLIENT));
+    roleService.assignAllPermissions(RoleNames.SUPER_ADMIN);
   }
 }

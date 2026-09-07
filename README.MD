@@ -2,21 +2,20 @@
 
 ## 1. Resumen general
 
-API REST construida con **Spring Boot 3 + Java 17+** que gestiona **usuarios, roles y permisos**, con autenticación JWT y autorización dinámica por ruta. Persiste en PostgreSQL (Supabase) vía JPA/Hibernate.
+API REST construida con **Spring Boot 3.5.8 + Java 21** que gestiona **usuarios, roles y permisos**, con autenticación JWT y autorización basada en permisos. Persiste en PostgreSQL vía JPA/Hibernate.
 
 **Paquete raíz:** `com.server.app` · **Clase principal:** `AppApplication`
 
 ### Stack técnico
-- Spring Boot (Web, Security, Data JPA, Validation, Actuator)
-- Spring Security con filtros personalizados
-- JJWT (`io.jsonwebtoken`) para firmar/verificar JWT (HMAC)
-- MapStruct para mapeo Entity ↔ DTO
-- Lombok
-- springdoc-openapi (Swagger UI) con esquema Bearer
-- BCrypt para hash de contraseñas
-- PostgreSQL vía Hibernate
+- Java 21
+- Spring Boot 3.5.8 (Web, Security, Data JPA, Validation y Actuator)
+- PostgreSQL con Hibernate
+- JJWT 0.12.6 para JWT HMAC
+- BCrypt para contraseñas
+- MapStruct 1.6.3 y Lombok
+- Springdoc OpenAPI 2.8.5
+- Maven Wrapper y Docker con Eclipse Temurin 21
 
----
 
 ## 2. Arquitectura por capas
 
@@ -38,7 +37,6 @@ common/
 
 Los módulos `User` y `Role` implementan una interfaz genérica `IBaseService<ID, CreateDto, UpdateDto, ResponseDto>` con los métodos CRUD estándar (`create`, `update`, `findById`, `delete`, `restore`).
 
----
 
 ## 3. Modelo de datos
 
@@ -52,37 +50,38 @@ Heredado por `User` y `Role`: `createdAt`, `updatedAt` (auto-actualizado en `@Pr
 `id`, `name` (único), `active` (default `true`), `permissions` (`@ManyToMany` LAZY vía tabla `role_permissions`).
 
 ### `Permission`
-`path` + `method` (constraint único combinado), `title` descriptivo editable.
+`id`, `name` (único) y `title` descriptivo editable. Los nombres de permisos se definen en `PermissionNames`.
 
 ### `RefreshToken`
 `token` (hash SHA-256 del valor real), `familyId` (agrupa tokens rotados de una misma sesión), `used`, `revoked`, `user` (`@ManyToOne` EAGER), `expiresAt`.
 
----
 
 ## 4. Seguridad y autenticación
 
 ### 4.1 Flujo de request
 ```
-Request → CORS → JwtAuthenticationFilter → DynamicAuthorizationFilter → Controller
+Request → CORS → SecurityFilterChain → JwtAuthenticationFilter → Controller
 ```
-`SecurityConfig` desactiva CSRF, fuerza sesiones stateless y permite todas las rutas a nivel de Spring Security (`anyRequest().permitAll()`); el control de acceso real ocurre en los dos filtros personalizados.
+`SecurityConfig` desactiva CSRF, fuerza sesiones stateless, permite las operaciones públicas de autenticación y exige autenticación para el resto. El control de permisos se aplica con `@PreAuthorize` y las authorities cargadas por `JwtAuthenticationFilter`.
 
-### 4.2 `SecurityRules` — clasificación de rutas
-- **`PUBLIC`**: sin token (`login`, `signup`, `refresh`, `logout`, `GET /api/public/info`)
-- **`AUTH_ONLY`**: requieren estar autenticado, sin permiso específico (`/api/auth/profile`, `/api/auth/password`)
-- **`IGNORED`**: infraestructura (Swagger, `/actuator/health`, `/error`)
+### 4.2 Rutas públicas y autenticadas
+- Públicas en `SecurityConfig`: `POST /api/auth/login`, `POST /api/auth/signup`, `POST /api/auth/refresh` y `POST /api/auth/logout`.
+- Autenticadas: perfil, cambio de contraseña y todos los endpoints de usuarios, roles y permisos.
+- OpenAPI: `/v3/api-docs` y `/swagger-ui.html`.
 
 ### 4.3 `JwtAuthenticationFilter`
-- Exige header `Authorization: Bearer <token>`.
-- Verifica firma/expiración, extrae `userId` del claim `id`.
-- Carga el perfil completo desde BD en cada request (refleja bloqueos/cambios de rol al instante).
-- Rechaza si el usuario está `blocked` o su rol está `inactive`.
-- Construye authorities `"METODO:/ruta"` (ej. `GET:/api/users`) + `ROLE_<NOMBRE_ROL>`.
+- Exige el header `Authorization: Bearer <token>`.
+- Verifica la firma y expiración, y extrae el id desde el claim `id`.
+- Carga el perfil actual desde la base de datos en cada request.
+- Rechaza usuarios bloqueados o con roles inactivos.
+- Registra como authorities los nombres de los permisos y `ROLE_<NOMBRE_ROL>`.
 
-### 4.4 `DynamicAuthorizationFilter`
-Compara `method:path` del request contra las authorities del usuario usando `AntPathMatcher` (soporta wildcards `/api/users/**`). Sin match → `403 Forbidden`.
+Aunque `SecurityConfig` declara públicas las rutas de autenticación, el filtro actual responde `401` si no reciben un header Bearer. Este comportamiento debe considerarse al probar login, signup, refresh y logout.
 
-**Bypass `SUPER_ADMIN`:** si el usuario tiene la authority `ROLE_SUPER_ADMIN`, el filtro deja pasar el request sin evaluar `role_permissions` — acceso total garantizado, independiente de la tabla de permisos.
+### 4.4 Autorización por permisos
+Los controladores de usuarios, roles y permisos usan `@PreAuthorize("hasAuthority('PERMISO')")`. Las authorities se obtienen desde `role_permissions` y se agregan al contexto de Spring Security por cada request.
+
+El usuario con role `SUPER_ADMIN` recibe todos los permisos disponibles durante el `RoleSeeder`. Además, sus operaciones de edición de role están protegidas en `RoleServiceImpl` y el usuario super administrador no puede modificarse, eliminarse ni restaurarse desde la API.
 
 ### 4.5 `JsonWebTokenProvider`
 Firma HMAC con clave Base64. El JWT solo contiene el `id` del usuario; rol, permisos y estado se resuelven en cada request desde BD. `expiration-time` configurable en milisegundos.
@@ -95,34 +94,41 @@ Rotación con detección de reuso:
 4. `/logout` revoca la familia completa.
 5. TTL de **7 días**.
 
-### 4.7 `PermissionSeeder`
-Al arrancar (`ApplicationReadyEvent`), escanea todos los endpoints reales registrados en Spring MVC, excluye `PUBLIC`/`AUTH_ONLY`/`IGNORED`, y crea en BD un `Permission` (path+method) por cada uno que no exista — el catálogo de permisos siempre refleja el código actual.
+### 4.7 `PermissionSeeder` (`@Order(0)`)
+Al arrancar (`ApplicationReadyEvent`), crea en BD los permisos definidos en `PermissionNames.HIERARCHY` que todavía no existan. No elimina permisos existentes.
 
 ### 4.8 `RoleSeeder` (`@Order(1)`)
-Crea, si no existen, los roles base: `SUPER_ADMIN`, `ADMIN`, `CLIENT` (constantes en `RoleNames`).
+Crea, si no existen, los roles base `SUPER_ADMIN`, `ADMIN` y `CLIENT` (constantes en `RoleNames`). Después asigna a `SUPER_ADMIN` todos los registros de la tabla `permissions`, por lo que también actualiza instalaciones existentes cuando se agregan nuevos permisos.
 
 ### 4.9 `SuperAdminSeeder` (`@Order(2)`)
 Crea automáticamente el usuario `SUPER_ADMIN` al arrancar, garantizando que solo exista uno:
 - Verifica `userRepository.existsByRole_Name(RoleNames.SUPER_ADMIN)`; si ya existe, no hace nada.
-- Si el rol `SUPER_ADMIN` aún no existe en BD, lanza `IllegalStateException`.
-- Credenciales por variables de entorno (`security.super-admin.*` → `SUPER_ADMIN_USERNAME`, `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`).
-- Password guardado con `PasswordEncoder` (BCrypt).
+- Si el rol `SUPER_ADMIN` aún no existe, lanza `IllegalStateException`.
+- Usa `SUPER_ADMIN_USERNAME`, `SUPER_ADMIN_EMAIL` y `SUPER_ADMIN_PASSWORD`.
+- Guarda la contraseña mediante `BCryptPasswordEncoder`.
 
 ### 4.10 Protección del usuario `SUPER_ADMIN` (`UserServiceImpl`)
 `update`, `delete` y `restore` verifican si el usuario objetivo tiene rol `SUPER_ADMIN`; si es así, lanzan `ConfictException` y bloquean la operación. El único `SUPER_ADMIN` del sistema queda protegido de ser modificado o eliminado vía API.
 
-### 4.11 Listado jerárquico de roles
-`GET /api/roles` filtra según la jerarquía del usuario autenticado:
+### 4.11 Catálogo de permisos
 
-| Rol autenticado | Roles visibles |
+Los permisos actuales son:
+
+| Permiso | Operaciones protegidas |
 |---|---|
-| `SUPER_ADMIN` | `SUPER_ADMIN`, `ADMIN`, `CLIENT` |
-| `ADMIN` | `ADMIN`, `CLIENT` |
-| `CLIENT` | `CLIENT` |
+| `USER_CREATE` | Crear usuarios |
+| `USER_READ` | Listar y consultar usuarios |
+| `USER_UPDATE` | Actualizar usuarios |
+| `USER_DELETE` | Eliminar y restaurar usuarios |
+| `ROLE_CREATE` | Crear roles |
+| `ROLE_READ` | Listar y consultar roles |
+| `ROLE_UPDATE` | Actualizar roles |
+| `ROLE_DELETE` | Eliminar y restaurar roles |
+| `PERMISSION_READ` | Listar permisos |
+| `PERMISSION_UPDATE` | Actualizar el título de un permiso |
 
-`RoleNames.HIERARCHY` define el orden; `RoleNames.visibleFrom(rol)` devuelve el rol dado y todo lo inferior. `RoleSpecifications.nameIn(...)` filtra por esos nombres, combinado con la specification de búsqueda/soft-delete existente. `RoleController` obtiene el rol actual vía `@AuthenticationPrincipal` y lo pasa al service.
+El seeder asigna los diez permisos a `SUPER_ADMIN`. Los permisos de `ADMIN` y `CLIENT` se administran mediante la relación `role_permissions` o mediante la creación/actualización de roles. Los endpoints de autenticación y perfil tienen reglas propias y no usan estos permisos CRUD.
 
----
 
 ## 5. Endpoints expuestos
 
@@ -141,14 +147,13 @@ Crea automáticamente el usuario `SUPER_ADMIN` al arrancar, garantizando que sol
 `GET /` (paginado, filtros `search`, `role`, `deleted`), `GET /{id}`, `POST /`, `PUT /{id}`, `DELETE /{id}` (soft delete), `PATCH /{id}/restore`.
 
 ### `/api/roles` (`RoleController`)
-`GET /` (paginado, filtros `search`, `deleted`, filtrado jerárquico automático), `GET /{id}`, `POST /`, `PUT /{id}`, `DELETE /{id}` (soft delete), `PATCH /{id}/restore`.
+`GET /` (paginado, filtros `search` y `deleted`), `GET /{id}`, `POST /`, `PUT /{id}`, `DELETE /{id}` (soft delete), `PATCH /{id}/restore`.
 
 ### `/api/permissions` (`PermissionController`)
 `GET /` (paginado), `PUT /{id}` (solo editable el `title`).
 
 Todas las respuestas paginadas usan `PaginationResponse<T>` (`data` + metadata: `page` 1-indexado, `pageSize`, `pageCount`, `total`).
 
----
 
 ## 6. Manejo de errores (`AdviceController`)
 
@@ -166,7 +171,6 @@ Todas las respuestas paginadas usan `PaginationResponse<T>` (`data` + metadata: 
 | `RuntimeException` genérica | 400 |
 | `Exception` genérica | 500 |
 
----
 
 ## 7. Configuración (`application.properties`)
 
@@ -204,44 +208,73 @@ security.super-admin.password=${SUPER_ADMIN_PASSWORD}
 ```
 `spring.jpa.open-in-view=false`, Swagger en `/v3/api-docs` y `/swagger-ui.html`, solo se expone el endpoint `health` de Actuator sin detalles.
 
----
 
 ## 8. Paginación y búsqueda
-
-- `PageableConfig` fuerza que `page` sea **1-indexado** en la API.
-- `RoleSpecifications` y `UserSpecifications` filtran por `deletedAt`, texto (`LIKE` case-insensitive) y, en usuarios, por `roleId`.
-- `EntityGraph` en los repositorios evita el problema N+1 (ej. `UserRepository.findById` trae `role` y `role.permissions` en una sola consulta).
-
----
+- `PageableConfig` fuerza que `page` sea 1-indexado.
+- `UserSpecifications` filtra por texto, `roleId` y `deleted`.
+- `RoleSpecifications` filtra por texto y `deleted`.
+- Los repositorios usan `EntityGraph` para cargar roles y permisos cuando es necesario y evitar N+1.
+- Las respuestas paginadas usan `PaginationResponse<T>` con `data`, `page`, `pageSize`, `pageCount` y `total`.
 
 ## 9. Mapeo de datos (MapStruct)
+- Los mappers ignoran ids, contraseñas, relaciones gestionadas por el servicio y fechas de auditoría cuando corresponde.
+- Las actualizaciones usan `NullValuePropertyMappingStrategy.IGNORE`, por lo que los campos `null` no sobrescriben valores existentes.
+- `RoleMapper.toSummaryDto` omite permisos en listados para reducir el payload.
 
-- `toEntity` ignora campos gestionados por el servidor (`id`, `password`, `blocked`, `role`, fechas de auditoría).
-- `updateEntity` usa `@MappingTarget` + `NullValuePropertyMappingStrategy.IGNORE` → actualización parcial (un campo `null` no sobrescribe el valor existente).
-- `RoleMapper` expone `toSummaryDto` (sin permisos) para listados, reduciendo el payload.
+## 10. DTOs principales
 
----
+### Autenticación
+- `LoginDto`: `username` y `password`, ambos obligatorios.
+- `SignUpDto`: `username`, `name`, `surname`, `email` y `password`; la contraseña requiere mínimo 8 caracteres.
+- `UpdateProfileDto`: username, nombre, apellido y email obligatorios.
+- `UpdatePasswordDto`: contraseña actual, nueva contraseña y confirmación; la nueva requiere mínimo 8 caracteres.
+- `AuthResponseDto`: JWT, refresh token y perfil.
 
-## 10. Script SQL de asignación de permisos
+### Usuarios, roles y permisos
+- `UserCreateDto`: username, name, surname, email, password y role opcional mediante `IdDto`.
+- `UserUpdateDto`: username, name, surname, blocked, email y role opcional.
+- `RoleCreateDto` y `RoleUpdateDto`: `name`, `active` y permisos opcionales mediante ids.
+- `PermissionUpdateDto`: `title` obligatorio, entre 3 y 100 caracteres.
+- Las respuestas incluyen datos de auditoría (`createdAt`, `updatedAt` y `deletedAt`) cuando corresponde.
 
-Complementa al `PermissionSeeder`: mientras este crea los permisos automáticamente, este script asigna permisos a roles en `role_permissions`.
+## 11. Ejecución local
+
+Requisitos: Java 21, PostgreSQL y las variables de entorno descritas en la sección de configuración.
+
+```powershell
+.\mvnw.cmd -B test
+.\mvnw.cmd -B verify
+.\mvnw.cmd spring-boot:run
+```
+
+## 12. Docker
+
+El `Dockerfile` compila con Maven y Temurin 21, ejecuta la imagen final con `eclipse-temurin:21-jre-alpine`, usa el usuario no root `springboot`, expone el puerto 3000 y comprueba `/actuator/health`.
+
+`docker-compose.yml` construye el servicio `api`, carga `.env`, publica `${SERVER_PORT}` y usa la red externa `postgres_network`.
+
+```powershell
+docker network create postgres_network
+docker compose up --build
+```
+
+## 13. Consultas SQL de permisos
+
+`PermissionSeeder` y `RoleSeeder` se encargan de crear los permisos y asignarlos todos a `SUPER_ADMIN`. Para inspeccionar las asignaciones actuales:
 
 ```sql
--- ADMIN recibe solo los permisos de lectura (method = 'GET')
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'ADMIN' AND p.method = 'GET'
-ON CONFLICT DO NOTHING;
-
--- Verificación / inspección
 select * from roles r ;
 select * from role_permissions;
 select * from permissions;
 
--- Reset completo de asignaciones
-delete from role_permissions ;
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.name = 'ADMIN' AND p.name = 'USER_READ'
+ON CONFLICT DO NOTHING;
 ```
 
-`SUPER_ADMIN` no necesita ningún `INSERT` — tiene acceso total vía el bypass del filtro (§4.4). `CLIENT` no recibe ningún permiso por este script; su acceso queda limitado a las rutas `AUTH_ONLY`/`PUBLIC`. El `ON CONFLICT DO NOTHING` hace el script idempotente (requiere una constraint única `(role_id, permission_id)` en la tabla).
+La tabla `permissions` usa `name`, no `path` ni `method`. `SUPER_ADMIN` recibe todos los permisos automáticamente durante el arranque; no es necesario insertar sus relaciones manualmente. `ON CONFLICT DO NOTHING` mantiene idempotentes las inserciones si existe la restricción única de la tabla intermedia.
+
+El archivo `script.sql` incluido en el repositorio contiene una versión anterior de la inserción para `ADMIN` que filtra por `permissions.method` y también incluye una limpieza de `role_permissions`. Esa consulta no coincide con el modelo actual, que usa `permissions.name`, por lo que debe actualizarse antes de ejecutarse.

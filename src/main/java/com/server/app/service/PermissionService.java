@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import com.server.app.common.pagination.PaginationMapper;
 import com.server.app.common.pagination.PaginationResponse;
+import com.server.app.domain.dto.permission.PermissionCreatedDto;
 import com.server.app.domain.dto.permission.PermissionResponseDto;
 import com.server.app.domain.dto.permission.PermissionUpdateDto;
 import com.server.app.domain.mapper.PermissionMapper;
@@ -27,20 +28,22 @@ public class PermissionService {
   private final PaginationMapper paginationMapper;
 
   @Transactional
-  public void createAllIfNotExists(List<Permission> candidates) {
-    if (candidates.isEmpty())
+  public void createAllIfNotExists(List<String> candidates) {
+    if (candidates == null || candidates.isEmpty()) {
       return;
+    }
 
-    Set<String> existing = permissionRepository.findAll().stream()
-        .map(p -> key(p.getPath(), p.getMethod()))
+    Set<String> existingNames = permissionRepository.findByNameIn(candidates).stream()
+        .map(Permission::getName)
         .collect(Collectors.toSet());
 
-    List<Permission> toCreate = candidates.stream()
-        .filter(p -> !existing.contains(key(p.getPath(), p.getMethod())))
+    List<Permission> listToCreate = candidates.stream()
+        .filter(name -> !existingNames.contains(name))
+        .map(name -> permissionMapper.toCreateSeeder(new PermissionCreatedDto(name)))
         .toList();
 
-    if (!toCreate.isEmpty()) {
-      permissionRepository.saveAll(toCreate);
+    if (!listToCreate.isEmpty()) {
+      permissionRepository.saveAll(listToCreate);
     }
   }
 
@@ -57,9 +60,5 @@ public class PermissionService {
   public PaginationResponse<PermissionResponseDto> findAll(Pageable pageable) {
     Page<Permission> page = permissionRepository.findAll(pageable);
     return paginationMapper.toPaginationResponse(page.map(permissionMapper::toResponseDto));
-  }
-
-  private String key(String path, String method) {
-    return method + ":" + path;
   }
 }

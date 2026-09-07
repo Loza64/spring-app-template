@@ -16,7 +16,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.server.app.common.exceptions.response.ExceptionResponse;
 import com.server.app.config.JsonWebTokenProvider;
-import com.server.app.config.SecurityRules;
 import com.server.app.domain.dto.auth.ProfileResponseDto;
 import com.server.app.service.AuthService;
 
@@ -36,13 +35,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
   private final JsonWebTokenProvider jwtUtil;
   private final AuthService authService;
   private final ObjectMapper objectMapper;
-
-  @Override
-  protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-    String method = request.getMethod();
-    String path = request.getRequestURI();
-    return SecurityRules.isPublic(method, path) || SecurityRules.isIgnored(path);
-  }
 
   @Override
   protected void doFilterInternal(
@@ -66,14 +58,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       }
 
       Claims claims = jwtUtil.extracClaims(token);
-
       if (claims == null) {
         sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Invalid token data");
         return;
       }
 
       Long userId = jwtUtil.extractIdUser(token);
-
       if (userId == null) {
         sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token data invalid");
         return;
@@ -94,27 +84,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       Set<GrantedAuthority> authorities = user.role()
           .permissions()
           .stream()
-          .map(permission -> new SimpleGrantedAuthority(permission.method() + ":" + permission.path()))
+          .map(permission -> new SimpleGrantedAuthority(permission.name()))
           .collect(Collectors.toSet());
 
       authorities.add(new SimpleGrantedAuthority("ROLE_" + user.role().name()));
 
-      UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user, null,
-          authorities);
+      UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+          user, null, authorities);
 
       authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
       SecurityContextHolder.getContext().setAuthentication(authentication);
-
-      filterChain.doFilter(request, response);
 
     } catch (ExpiredJwtException e) {
       sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token expirado");
+      return;
     } catch (JwtException e) {
       sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Token inválido");
+      return;
     } catch (Exception e) {
       sendErrorResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Error interno del servidor");
+      return;
     }
+
+    filterChain.doFilter(request, response);
   }
 
   private void sendErrorResponse(HttpServletResponse response, int status, String message) throws IOException {

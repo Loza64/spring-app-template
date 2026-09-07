@@ -138,4 +138,13 @@ public class RoleServiceImpl implements IBaseService<Long, RoleCreateDto, RoleUp
       repository.saveAll(toCreate);
     }
   }
+
+  @Transactional
+  public void assignAllPermissions(String roleName) {
+    Role role = repository.findByName(roleName)
+        .orElseThrow(() -> new NotFoundException("Rol no encontrado: " + roleName));
+
+    role.setPermissions(new HashSet<>(permissionRepository.findAll()));
+    repository.save(role);
+  }
 }

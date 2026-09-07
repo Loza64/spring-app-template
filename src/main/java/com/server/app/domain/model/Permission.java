@@ -10,10 +10,14 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Permission {
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
-  private String path;
-  private String method;
+
+  @Column(nullable = false, unique = true)
+  private String name;
+
+  @Column(nullable = true, unique = false)
   private String title;
 }

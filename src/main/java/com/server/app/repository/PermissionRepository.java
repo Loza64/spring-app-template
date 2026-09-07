@@ -1,11 +1,11 @@
 package com.server.app.repository;
 
-import java.util.Optional;
+import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.server.app.domain.model.Permission;
 
 public interface PermissionRepository extends JpaRepository<Permission, Long> {
-  Optional<Permission> findByPathAndMethod(String path, String method);
+  List<Permission> findByNameIn(List<String> names);
 }

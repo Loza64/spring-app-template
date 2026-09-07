@@ -9,7 +9,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.server.app.filter.DynamicAuthorizationFilter;
 import com.server.app.filter.JwtAuthenticationFilter;
 
 @Configuration
@@ -17,12 +16,9 @@ import com.server.app.filter.JwtAuthenticationFilter;
 public class SecurityConfig {
 
   private final JwtAuthenticationFilter jwtAuthenticationFilter;
-  private final DynamicAuthorizationFilter dynamicAuthorizationFilter;
 
-  public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-      DynamicAuthorizationFilter dynamicAuthorizationFilter) {
+  public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
     this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-    this.dynamicAuthorizationFilter = dynamicAuthorizationFilter;
   }
 
   @Bean
@@ -31,9 +27,12 @@ public class SecurityConfig {
         .cors(Customizer.withDefaults())
         .csrf(csrf -> csrf.disable())
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-        .addFilterAfter(dynamicAuthorizationFilter, JwtAuthenticationFilter.class);
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/refresh", "/api/auth/logout",
+                "/v3/api-docs", "/swagger-ui.html")
+            .permitAll()
+            .anyRequest().authenticated())
+        .addFilterAfter(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
     return http.build();
   }
