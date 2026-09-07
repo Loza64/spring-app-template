@@ -45,7 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     final String authHeader = request.getHeader("Authorization");
 
     if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-      sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, "Bearer token required");
+      filterChain.doFilter(request, response);
       return;
     }
 

@@ -32,7 +32,7 @@ public class SecurityConfig {
                 "/v3/api-docs", "/swagger-ui.html")
             .permitAll()
             .anyRequest().authenticated())
-        .addFilterAfter(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
     return http.build();
   }
